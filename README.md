@@ -25,20 +25,19 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 - Atalhos: `N` nova ação · `/` buscar · `1`–`4` trocar visão · `Esc` fechar
 - Auto-save local a cada alteração + sincronização automática com o GitHub
 
-## Como publicar no GitHub Pages (uma vez)
+## Como publicar no Vercel (uma vez)
 
-1. Crie um repositório **público** no GitHub (ex.: `acompanhamento-acoes`).
-2. Suba o arquivo `index.html` (e este `README.md`) para o repositório:
-   ```bash
-   git init
-   git add index.html README.md
-   git commit -m "Acompanhamento de Ações"
-   git branch -M main
-   git remote add origin https://github.com/SEU_USUARIO/acompanhamento-acoes.git
-   git push -u origin main
-   ```
-3. No repositório: **Settings → Pages → Build and deployment → Source: Deploy from a branch → branch `main`, pasta `/root` → Save**.
-4. Em poucos minutos o site estará em `https://SEU_USUARIO.github.io/acompanhamento-acoes/`.
+1. Tenha o repositório no GitHub (ex.: `acompanhamento-acoes`, **público**) com o `index.html` na raiz.
+2. Acesse [vercel.com](https://vercel.com) → **Log in with GitHub**.
+3. **Add New… → Import Git Repository** → escolha o repositório.
+4. Em *Framework Preset* deixe **Other** (sem build command, sem output dir) → **Deploy**.
+5. Pronto: o site fica em `https://SEU_PROJETO.vercel.app` e **todo `git push` para `main` publica sozinho**.
+
+> Para desativar o GitHub Pages antigo: no repositório → **Settings → Pages → Branch: None → Save**.
+
+### Estrutura do deploy
+
+Zero dependências externas, zero build — o Vercel serve o `index.html` direto da raiz. Não há `vercel.json` nem etapa de build.
 
 ## Como o time sincroniza (grátis, automático)
 
