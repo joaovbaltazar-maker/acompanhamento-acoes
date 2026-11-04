@@ -1133,7 +1133,7 @@ function importarJSON(){
   };
   inp.click();
 }
-function csvEscape(v){const s=String(v==null?"":v);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+function csvEscape(v){const s=String(v==null?"":v);return /[";\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function exportarCSV(){
   const linhas=[["id","titulo","descricao","responsavel","status","prioridade","inicio","prazo","progresso","id_pai"].join(";")];
   filtradas().forEach(a=>{
@@ -1151,23 +1151,33 @@ function importarCSV(){
     fr.onload=()=>{
       try{
         const txt=String(fr.result).replace(/^\ufeff/,"");
-        const linhas=txt.split(/\r?\n/).filter(l=>l.trim());
+        const sep=(txt.split(/\r?\n/,1)[0]||"").includes(";")?";":",";
+        const linhas=parseCSV(txt,sep).filter(r=>r.some(x=>String(x).trim()));
         if(linhas.length<2)throw new Error("arquivo vazio");
-        const sep=linhas[0].includes(";")?";":",";
-        const cab=lerCSV(linhas[0],sep).map(s=>s.trim().toLowerCase());
+        const cab=linhas[0].map(s=>s.trim().toLowerCase());
         const ix=(nome,padrao)=>{const i=cab.indexOf(nome);return i>=0?i:padrao;};
         const iId=ix("id",0),iTit=ix("titulo",1),iDesc=ix("descricao",2),iResp=ix("responsavel",3),
               iStat=ix("status",4),iPrio=ix("prioridade",5),iIni=ix("inicio",6),iPrazo=ix("prazo",7),
               iProg=ix("progresso",8),iPai=ix("id_pai",-1);
         let n=0;
-        linhas.slice(1).forEach(l=>{
-          const c=lerCSV(l,sep);
+        linhas.slice(1).forEach(c=>{
           if(!c[iTit])return;
-          const membro=estado.membros.find(m=>m.nome.toLowerCase()===String(c[iResp]||"").toLowerCase());
-          const col=estado.colunas.find(x=>x.nome.toLowerCase()===String(c[iStat]||"").toLowerCase())||estado.colunas[0];
+          const nomeResp=String(c[iResp]||"").trim();
+          let membro=nomeResp?estado.membros.find(m=>m.nome.toLowerCase()===nomeResp.toLowerCase()):null;
+          if(!membro&&nomeResp){
+            membro={id:uid(),nome:nomeResp,cor:CORES[estado.membros.length%CORES.length],funcao:"",alteradoEm:agora()};
+            estado.membros.push(membro);
+          }
+          const nomeCol=String(c[iStat]||"").trim();
+          let col=nomeCol?estado.colunas.find(x=>x.nome.toLowerCase()===nomeCol.toLowerCase()):null;
+          if(!col&&nomeCol){
+            col={id:uid(),nome:nomeCol,cor:CORES[(estado.colunas.length+2)%CORES.length],ordem:estado.colunas.length+1,alteradoEm:agora()};
+            estado.colunas.push(col);
+          }
+          if(!col)col=estado.colunas[0];
           const obj={
-            id:c[iId]||uid(),titulo:c[iTit],descricao:c[iDesc]||"",membroId:membro?membro.id:"",
-            status:col?col.id:"",prioridade:PRIOS.includes(c[iPrio])?c[iPrio]:"Media",
+            id:String(c[iId]||"").trim()||uid(),titulo:c[iTit],descricao:c[iDesc]||"",membroId:membro?membro.id:"",
+            status:col.id,prioridade:PRIOS.includes(c[iPrio])?c[iPrio]:"Media",
             inicio:c[iIni]||"",prazo:c[iPrazo]||"",progresso:Math.max(0,Math.min(100,+c[iProg]||0)),
             parentId:iPai>=0?String(c[iPai]||"").trim()||null:null,
             criadoEm:agora(),alteradoEm:agora()
@@ -1184,20 +1194,25 @@ function importarCSV(){
   };
   inp.click();
 }
-function lerCSV(linha,sep){
-  const out=[];let cur="";let asp=false;
-  for(let i=0;i<linha.length;i++){
-    const ch=linha[i];
+function parseCSV(txt,sep){
+  const rows=[];let cur=[];let campo="";let asp=false;
+  for(let i=0;i<txt.length;i++){
+    const ch=txt[i];
     if(asp){
-      if(ch==='"'){if(linha[i+1]==='"'){cur+='"';i++;}else asp=false;}
-      else cur+=ch;
+      if(ch==='"'){if(txt[i+1]==='"'){campo+='"';i++;}else asp=false;}
+      else campo+=ch;
     }else{
       if(ch==='"')asp=true;
-      else if(ch===sep){out.push(cur);cur="";}
-      else cur+=ch;
+      else if(ch===sep){cur.push(campo);campo="";}
+      else if(ch==="\n"||ch==="\r"){
+        if(ch==="\r"&&txt[i+1]==="\n")i++;
+        cur.push(campo);campo="";rows.push(cur);cur=[];
+      }
+      else campo+=ch;
     }
   }
-  out.push(cur);return out;
+  if(campo!==""||cur.length){cur.push(campo);rows.push(cur);}
+  return rows;
 }
 
 function atalhos(e){
