@@ -1012,10 +1012,18 @@ function mesclarRemoto(r){
     else if((a.alteradoEm||0)>(local.alteradoEm||0))mapa.set(a.id,a);
   });
   estado.acoes=Array.from(mapa.values()).filter(a=>{const em=tomb.get(a.id);return em==null||vivo(a,em);});
-  if((r.alteradoEm||0)>(estado.alteradoEm||0)){
-    if(JSON.stringify(r.membros||[])!==JSON.stringify(estado.membros||[]))estado.membros=r.membros||estado.membros;
-    if(JSON.stringify(r.colunas||[])!==JSON.stringify(estado.colunas||[]))estado.colunas=r.colunas||estado.colunas;
-  }
+  const mergePorId=(arrL,arrR)=>{
+    const m=new Map();
+    (arrL||[]).forEach(x=>m.set(x.id,x));
+    (arrR||[]).forEach(x=>{
+      const loc=m.get(x.id);
+      if(!loc)m.set(x.id,x);
+      else if((x.alteradoEm||0)>(loc.alteradoEm||0))m.set(x.id,x);
+    });
+    return Array.from(m.values());
+  };
+  estado.membros=mergePorId(estado.membros,r.membros);
+  estado.colunas=mergePorId(estado.colunas,r.colunas);
   estado.membros=(estado.membros||[]).filter(x=>{const em=tomb.get(x.id);return em==null||vivo(x,em);});
   estado.colunas=(estado.colunas||[]).filter(x=>{const em=tomb.get(x.id);return em==null||vivo(x,em);});
   if(!estado.colunas.length)estado.colunas=estadoPadrao().colunas;
