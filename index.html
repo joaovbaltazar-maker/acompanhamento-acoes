@@ -107,6 +107,8 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
 .twisty:hover{background:rgba(0,0,0,.12);color:var(--text)}
 .twisty.fechado{transform:rotate(-90deg)}
 .sub-count{font-size:11px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.05);padding:2px 7px;border-radius:6px;margin-left:8px;white-space:nowrap}
+.addsub{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:14px;font-weight:600;color:var(--muted);background:rgba(0,0,0,.06);vertical-align:middle;margin-left:6px;transition:background .13s ease,color .13s ease,transform .1s ease}
+.addsub:hover{background:var(--primary-soft);color:var(--primary);transform:scale(1.1)}
 .chkcell{width:36px}
 .lote-bar{display:flex;gap:10px;align-items:center;padding:10px 16px;background:rgba(0,113,227,.07);border-bottom:1px solid var(--hair);font-size:13px;font-weight:500}
 .kanban{display:flex;gap:16px;align-items:flex-start;overflow-x:auto;padding-bottom:12px;min-height:60vh}
@@ -125,8 +127,6 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
 .kcard .kmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .kcard .prazo{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:4px}
 .kcard .prazo.atrasado{color:var(--danger);font-weight:700}
-.kcard .tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:9px}
-.tag{font-size:10.5px;background:rgba(0,0,0,.05);color:var(--muted);padding:2px 7px;border-radius:5px;font-weight:600}
 .kcard.subcard{background:#fbfbfd;box-shadow:none;border-style:dashed}
 .kadd{margin:0 10px 10px;padding:8px 10px;border-radius:9px;color:var(--muted);font-size:13px;text-align:left;font-weight:500}
 .kadd:hover{background:rgba(0,0,0,.05);color:var(--primary)}
@@ -143,7 +143,6 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
 .nadd:hover{background:var(--hover);color:var(--primary);opacity:1!important}
 .cal-item{font-size:11.5px;padding:4px 7px;border-radius:7px;margin-bottom:4px;cursor:pointer;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-left:3px solid;transition:filter .12s ease}
 .cal-item:hover{filter:brightness(.94)}
-.cal-item.hito{background:#fff;border:1px dashed var(--primary);color:var(--primary);border-left:3px solid var(--primary)}
 .semana-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
 .semana-dia{background:#fff;border:1px solid var(--hair);border-radius:12px;min-height:150px;padding:10px;box-shadow:var(--shadow-soft)}
 .semana-dia h4{font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:var(--muted);margin-bottom:9px}
@@ -184,8 +183,6 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
 .g-barra .ala{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:2}
 .g-barra .ala.e{right:-3px} .g-barra .ala.i{left:-3px}
 .g-barra:hover{filter:brightness(1.07)}
-.g-hito{position:absolute;width:18px;height:18px;background:var(--warn);border:2.5px solid #fff;transform:rotate(45deg);top:13px;z-index:6;cursor:grab;box-shadow:0 1px 5px rgba(0,0,0,.3)}
-.g-hito.rot{background:var(--danger)}
 .g-leyenda{display:flex;gap:14px;font-size:11px;color:var(--muted);padding:9px 16px;border-top:1px solid var(--hair);flex-wrap:wrap}
 .g-leyenda span{display:flex;align-items:center;gap:5px}
 .mini{width:12px;height:12px;border-radius:4px;display:inline-block;flex-shrink:0}
@@ -285,18 +282,6 @@ function agora(){return Date.now();}
 function atrasada(a){if(!a.prazo)return false;if(progressoEfetivo(a)>=100)return false;const col=colunaPorId(a.status);if(col&&/conclu/i.test(col.nome))return false;return difDias(a.prazo,dISO(hoje()))<0;}
 function venceEm(a,n){if(!a.prazo)return false;const d=difDias(a.prazo,dISO(hoje()));return d>=0&&d<=n;}
 function filhosDe(id){return estado.acoes.filter(x=>x.parentId===id);}
-function temFilhos(id){return estado.acoes.some(x=>x.parentId===id);}
-function ehDescendente(id,ancestral){
-  let atual=estado.acoes.find(x=>x.id===id);
-  const vis=new Set();
-  while(atual&&atual.parentId){
-    if(atual.parentId===ancestral)return true;
-    if(vis.has(atual.id))return false;
-    vis.add(atual.id);
-    atual=estado.acoes.find(x=>x.id===atual.parentId);
-  }
-  return false;
-}
 function progressoEfetivo(a,vis){
   vis=vis||new Set();
   if(vis.has(a.id))return a.progresso||0;
@@ -340,7 +325,7 @@ function filtradas(){
     if(filtros.membro&&a.membroId!==filtros.membro)return false;
     if(filtros.prioridade&&a.prioridade!==filtros.prioridade)return false;
     if(b){
-      const alvo=(a.titulo+" "+(a.descricao||"")+" "+((a.tags||[]).join(" "))).toLowerCase();
+      const alvo=(a.titulo+" "+(a.descricao||"")).toLowerCase();
       if(!alvo.includes(b))return false;
     }
     return true;
@@ -401,15 +386,16 @@ function formVal(id){const el=document.getElementById(id);return el?el.value.tri
 
 function modalAcao(a,presetPai){
   const ehNova=!a;
-  const acao=a||{titulo:"",descricao:"",membroId:"",status:(estado.colunas[0]||{}).id,prioridade:"Media",inicio:dISO(hoje()),prazo:"",progresso:0,entrega:false,hito:false,tags:[]};
-  if(ehNova&&presetPai)acao.parentId=presetPai;
+  const acao=a||{titulo:"",descricao:"",membroId:"",status:(estado.colunas[0]||{}).id,prioridade:"Media",inicio:dISO(hoje()),prazo:"",progresso:0};
+  const idPai=ehNova?(presetPai||null):(acao.parentId||null);
+  const paiA=idPai?estado.acoes.find(x=>x.id===idPai):null;
   const membroOpts='<option value="">— sem responsável —</option>'+estado.membros.map(m=>'<option value="'+m.id+'"'+(acao.membroId===m.id?" selected":"")+'>'+esc(m.nome)+'</option>').join("");
   const colOpts=estado.colunas.map(c=>'<option value="'+c.id+'"'+(acao.status===c.id?" selected":"")+'>'+esc(c.nome)+'</option>').join("");
   const prioOpts=PRIOS.map(p=>'<option value="'+p+'"'+(acao.prioridade===p?" selected":"")+'>'+ROT_PRIO[p]+'</option>').join("");
-  const paiOpts='<option value="">— item principal —</option>'+estado.acoes.filter(x=>x.id!==acao.id&&!ehDescendente(x.id,acao.id||"")).map(x=>'<option value="'+x.id+'"'+(acao.parentId===x.id?" selected":"")+'>'+esc(x.titulo)+'</option>').join("");
   const nFilhos=filhosDe(acao.id||"").length;
   const progCalculado=nFilhos>0;
-  const corpo=
+  const notaPai=paiA?'<div style="background:var(--primary-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--primary);font-weight:500">Sub-ação de <b>“'+esc(paiA.titulo)+'”</b> — preencha normalmente, como qualquer ação.</div>':"";
+  const corpo=notaPai+
    '<div class="form-grid">'+
     '<div class="campo full"><label>Título da ação</label><input id="fTitulo" value="'+esc(acao.titulo)+'" placeholder="Ex.: Revisar plano de comunicação" autofocus></div>'+
     '<div class="campo full"><label>Descrição</label><textarea id="fDesc" placeholder="Detalhes, contexto, links…">'+esc(acao.descricao)+'</textarea></div>'+
@@ -419,12 +405,6 @@ function modalAcao(a,presetPai){
     '<div class="campo"><label>Progresso (%)</label><input id="fProg" type="number" min="0" max="100" step="5" value="'+(progCalculado?progressoEfetivo(acao):(acao.progresso||0))+'"'+(progCalculado?" disabled":"")+'>'+(progCalculado?'<div class="nota">Calculado a partir dos '+nFilhos+' sub-item(ns)</div>':"")+'</div>'+
     '<div class="campo"><label>Início</label><input id="fIni" type="date" value="'+esc(acao.inicio||"")+'"></div>'+
     '<div class="campo"><label>Prazo</label><input id="fPrazo" type="date" value="'+esc(acao.prazo||"")+'"></div>'+
-    '<div class="campo full"><label>Item pai (opcional)</label><select id="fPai">'+paiOpts+'</select><div class="nota">Deixe em branco para item principal. Sub-itens ficam agrupados na tabela e alimentam o progresso do pai.</div></div>'+
-    '<div class="campo full"><label>Tags (separadas por vírgula)</label><input id="fTags" value="'+esc((acao.tags||[]).join(", "))+'" placeholder="comunicação, financeiro"></div>'+
-    '<div class="campo full" style="display:flex;gap:22px;flex-wrap:wrap">'+
-      '<label class="chk"><input type="checkbox" id="fEntrega"'+(acao.entrega?" checked":"")+'> É uma entrega</label>'+
-      '<label class="chk"><input type="checkbox" id="fHito"'+(acao.hito?" checked":"")+'> Marco / milestone</label>'+
-    '</div>'+
   '</div>';
   const pe=(ehNova?"":'<button class="btn btn-danger" id="fExcluir" style="margin-right:auto">Excluir</button>')+
     '<button class="btn" data-fechar>Cancelar</button><button class="btn btn-primary" id="fSalvar">Salvar</button>';
@@ -438,10 +418,8 @@ function modalAcao(a,presetPai){
       membroId:$("#fMembro").value,status:$("#fStatus").value,
       prioridade:$("#fPrio").value,
       progresso:progCalculado?progressoEfetivo(acao):Math.max(0,Math.min(100,+$("#fProg").value||0)),
-      parentId:$("#fPai").value||null,
+      parentId:idPai,
       inicio:$("#fIni").value,prazo:$("#fPrazo").value,
-      tags:$("#fTags").value.split(",").map(s=>s.trim()).filter(Boolean),
-      entrega:$("#fEntrega").checked,hito:$("#fHito").checked,
       criadoEm:acao.criadoEm||agora(),alteradoEm:agora()
     };
     if(acao.id){
@@ -464,7 +442,7 @@ function modalAcao(a,presetPai){
 function modalMembros(){
   const lista=estado.membros.map((m,i)=>
     '<div class="lm" data-i="'+i+'" style="cursor:default">'+avatarHTML(m,"lg")+
-    '<div style="flex:1"><div style="font-weight:700">'+esc(m.nome)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(m.funcao||"—")+' · '+estado.acoes.filter(a=>a.membroId===m.id&&!atrasada(a)&&a.progresso<100).length+' ações ativas</div></div>'+
+    '<div style="flex:1"><div style="font-weight:700">'+esc(m.nome)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(m.funcao||"—")+' · '+estado.acoes.filter(a=>a.membroId===m.id&&!atrasada(a)&&progressoEfetivo(a)<100).length+' ações ativas</div></div>'+
     '<button class="btn btn-sm" data-editar="'+i+'">Editar</button>'+
     '<button class="btn btn-sm" data-remover="'+i+'">✕</button></div>').join("")||
     '<div class="vazio"><div class="big">👥</div><h3>Nenhum membro ainda</h3><p>Adicione as pessoas da área para atribuir ações.</p></div>';
@@ -544,7 +522,7 @@ function salvarInputsColunas(){
 function modalTemplate(){
   const corpo='<p style="color:var(--muted);margin-bottom:14px">Escolha por onde começar. Você pode mudar tudo depois em <b>Colunas de status</b> e <b>Membros</b>.</p>'+
   '<div class="tpl-grid">'+
-    '<button class="tpl" data-tpl="exemplo"><h4>🚀 Template “Ações da Área”</h4><p>Colunas, 4 membros de exemplo e 10 ações prontas (com sub-itens, prazos, entregas e marcos) — bom para ver o app funcionando.</p></button>'+
+    '<button class="tpl" data-tpl="exemplo"><h4>🚀 Template “Ações da Área”</h4><p>Colunas, 4 membros de exemplo e 10 ações prontas (com sub-itens, prazos e responsáveis) — bom para ver o app funcionando.</p></button>'+
     '<button class="tpl" data-tpl="vazio"><h4>📝 Começar do zero</h4><p>Só as colunas padrão (A Fazer, Em Andamento, Concluído, Bloqueado). Você cadastra seus membros e ações.</p></button>'+
   '</div>';
   abrirModal("Bem-vindo! Como quer começar?",corpo,"");
@@ -568,16 +546,16 @@ function aplicarTemplate(tipo){
     const h=dISO(hoje());
     const d=n=>dISO(addDias(hoje(),n));
     estado.acoes=[
-      {id:"a1",titulo:"Mapear processos da área",descricao:"Levantar processos atuais e gargalos com o time.",membroId:"m1",status:"c3",prioridade:"Alta",inicio:d(-10),prazo:d(-2),progresso:100,entrega:false,hito:false,tags:["processos"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a2",titulo:"Reunião de alinhamento semanal",descricao:"Pauta fixa com a equipe.",membroId:"m1",status:"c2",prioridade:"Media",inicio:d(-1),prazo:d(0),progresso:50,entrega:false,hito:false,tags:["reunião"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a3",titulo:"Plano de comunicação interna",descricao:"Definir canais, frequência e mensagens-chave.",membroId:"m3",status:"c2",prioridade:"Alta",inicio:d(-3),prazo:d(5),progresso:40,entrega:true,hito:false,tags:["comunicação"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a4",titulo:"Revisão de contratos fornecedores",descricao:"Renegociar cláusulas e prazos.",membroId:"m4",status:"c1",prioridade:"Critica",inicio:d(2),prazo:d(9),progresso:0,entrega:false,hito:false,tags:["financeiro","contratos"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a5",titulo:"Painel de indicadores (KPIs)",descricao:"Dashboard mensal para a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(4),prazo:d(16),progresso:0,entrega:true,hito:false,tags:["indicadores"],parentId:null,criadoEm:agora(),alteradoEm:agora()},
-      {id:"a9",titulo:"Coletar métricas das frentes",descricao:"Definir fontes, frequência e responsável por cada métrica.",membroId:"m2",status:"c2",prioridade:"Alta",inicio:d(4),prazo:d(10),progresso:30,entrega:false,hito:false,tags:["indicadores"],parentId:"a5",criadoEm:agora(),alteradoEm:agora()},
-      {id:"a10",titulo:"Montar layout do painel",descricao:"Wireframe e validação com a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(10),prazo:d(16),progresso:0,entrega:false,hito:false,tags:["indicadores"],parentId:"a5",criadoEm:agora(),alteradoEm:agora()},
-      {id:"a6",titulo:"Bloqueio: aguardando aprovação orçamento",descricao:"Orçamento do treinamento parado na diretoria.",membroId:"m4",status:"c4",prioridade:"Alta",inicio:d(-4),prazo:d(-1),progresso:20,entrega:false,hito:false,tags:["bloqueio"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a7",titulo:"Workshop de capacitação",descricao:"Turma 1 do programa de treinamento.",membroId:"m3",status:"c1",prioridade:"Media",inicio:d(12),prazo:d(24),progresso:0,entrega:true,hito:false,tags:["treinamento"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a8",titulo:"Entrega do relatório trimestral",descricao:"Consolidado de ações e resultados do trimestre.",membroId:"m1",status:"c1",prioridade:"Critica",inicio:d(6),prazo:d(21),progresso:0,entrega:true,hito:true,tags:["relatório"],criadoEm:agora(),alteradoEm:agora()}
+      {id:"a1",titulo:"Mapear processos da área",descricao:"Levantar processos atuais e gargalos com o time.",membroId:"m1",status:"c3",prioridade:"Alta",inicio:d(-10),prazo:d(-2),progresso:100,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a2",titulo:"Reunião de alinhamento semanal",descricao:"Pauta fixa com a equipe.",membroId:"m1",status:"c2",prioridade:"Media",inicio:d(-1),prazo:d(0),progresso:50,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a3",titulo:"Plano de comunicação interna",descricao:"Definir canais, frequência e mensagens-chave.",membroId:"m3",status:"c2",prioridade:"Alta",inicio:d(-3),prazo:d(5),progresso:40,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a4",titulo:"Revisão de contratos fornecedores",descricao:"Renegociar cláusulas e prazos.",membroId:"m4",status:"c1",prioridade:"Critica",inicio:d(2),prazo:d(9),progresso:0,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a5",titulo:"Painel de indicadores (KPIs)",descricao:"Dashboard mensal para a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(4),prazo:d(16),progresso:0,parentId:null,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a9",titulo:"Coletar métricas das frentes",descricao:"Definir fontes, frequência e responsável por cada métrica.",membroId:"m2",status:"c2",prioridade:"Alta",inicio:d(4),prazo:d(10),progresso:30,parentId:"a5",criadoEm:agora(),alteradoEm:agora()},
+      {id:"a10",titulo:"Montar layout do painel",descricao:"Wireframe e validação com a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(10),prazo:d(16),progresso:0,parentId:"a5",criadoEm:agora(),alteradoEm:agora()},
+      {id:"a6",titulo:"Bloqueio: aguardando aprovação orçamento",descricao:"Orçamento do treinamento parado na diretoria.",membroId:"m4",status:"c4",prioridade:"Alta",inicio:d(-4),prazo:d(-1),progresso:20,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a7",titulo:"Workshop de capacitação",descricao:"Turma 1 do programa de treinamento.",membroId:"m3",status:"c1",prioridade:"Media",inicio:d(12),prazo:d(24),progresso:0,criadoEm:agora(),alteradoEm:agora()},
+      {id:"a8",titulo:"Entrega do relatório trimestral",descricao:"Consolidado de ações e resultados do trimestre.",membroId:"m1",status:"c1",prioridade:"Critica",inicio:d(6),prazo:d(21),progresso:0,criadoEm:agora(),alteradoEm:agora()}
     ];
   }
   estado.membros.forEach(m=>{if(!m.alteradoEm)m.alteradoEm=agora();});
@@ -625,10 +603,9 @@ function renderTabela(el){
       '<td class="chkcell"><input type="checkbox" data-sel="'+a.id+'"'+(selecao.has(a.id)?" checked":"")+'></td>'+
       '<td class="tit-acoes'+(nivel>0?" c-tit":"")+'">'+
         (temF?'<span class="twisty'+(rec?" fechado":"")+'" data-twisty="'+a.id+'" title="Recolher/expandir">'+(rec?"▶":"▼")+'</span>':"")+
-        (a.entrega?"📦 ":"")+(a.hito?"◆ ":"")+'<span data-abrir="'+a.id+'" style="cursor:pointer">'+esc(a.titulo)+'</span>'+
-        ((a.tags&&a.tags.length)?' <span class="tag">'+esc(a.tags[0])+(a.tags.length>1?" +"+(a.tags.length-1):"")+'</span>':"")+
+        '<span data-abrir="'+a.id+'" style="cursor:pointer">'+esc(a.titulo)+'</span>'+
         (temF?'<span class="sub-count">'+filhos.length+' sub</span>':"")+
-        (temF?' <button class="btn btn-ghost btn-sm" data-sub="'+a.id+'" title="Adicionar sub-entrega">＋ sub</button>':"")+
+        ' <button class="addsub" data-sub="'+a.id+'" title="Adicionar sub-ação">＋</button>'+
       '</td>'+
       '<td>'+celMembro(a.membroId)+'</td>'+
       '<td>'+celStatus(a.status)+'</td>'+
@@ -734,14 +711,13 @@ function kcardHTML(a){
   const pe=progressoEfetivo(a);
   const nf=filhosDe(a.id).length;
   return '<div class="kcard'+(a.parentId?" subcard":"")+'" draggable="true" data-id="'+a.id+'" data-abrir="'+a.id+'" style="border-top:3px solid '+esc(cor)+'">'+
-    '<div class="kt">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+(a.hito?"◆ ":"")+(a.entrega?"📦 ":"")+esc(a.titulo)+
+    '<div class="kt">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+esc(a.titulo)+
       (nf?'<span class="sub-count">'+nf+' sub</span>':"")+'</div>'+
     '<div class="kmeta">'+chipPrio(a.prioridade)+
       (a.prazo?'<span class="prazo'+(atrasada(a)?" atrasado":"")+'">'+(atrasada(a)?"⚠ ":"📅 ")+fmtCurto(a.prazo)+'</span>':"")+
       '<span style="margin-left:auto;display:flex;align-items:center;gap:6px">'+(pe>0?'<span style="font-size:11px;color:var(--muted);font-weight:700">'+pe+'%</span>':"")+avatarHTML(m)+'</span>'+
     '</div>'+
     (pe>0?'<div style="margin-top:8px">'+barraProg(pe)+'</div>':"")+
-    ((a.tags&&a.tags.length)?'<div class="tags">'+a.tags.slice(0,3).map(t=>'<span class="tag">'+esc(t)+'</span>').join("")+'</div>':"")+
   '</div>';
 }
 
@@ -779,8 +755,7 @@ function calItemHTML(a,iso){
   const m=membroPorId(a.membroId);
   const c=colunaPorId(a.status);
   const cor=m?m.cor:(c?c.cor:"#579bfc");
-  const cls=a.hito?" cal-item hito":" cal-item";
-  return '<div class="'+cls+'" data-abrircal="'+a.id+'" style="'+(a.hito?"":"background:"+cor+"1f;border-left-color:"+cor+";color:"+cor)+'" title="'+esc(a.titulo+" — "+(m?m.nome:"")+(a.prazo?" · prazo "+fmtBR(a.prazo):""))+'">'+esc(a.titulo)+'</div>';
+  return '<div class="cal-item" data-abrircal="'+a.id+'" style="background:'+cor+'1f;border-left-color:'+cor+';color:'+cor+'" title="'+esc(a.titulo+" — "+(m?m.nome:"")+(a.prazo?" · prazo "+fmtBR(a.prazo):""))+'">'+esc(a.titulo)+'</div>';
 }
 function entregasPanelHTML(lista){
   const hojeISO=dISO(hoje());
@@ -853,7 +828,7 @@ function renderGantt(el){
       '<select id="gZoom" class="btn btn-sm"><option value="dia"'+(ganttZoom==="dia"?" selected":"")+'>Escala: dia</option><option value="semana"'+(ganttZoom==="semana"?" selected":"")+'>Escala: semana</option><option value="mes"'+(ganttZoom==="mes"?" selected":"")+'>Escala: mês</option></select>'+
       '<select id="gAgr" class="btn btn-sm"><option value="nenhum"'+(ganttAgrupar==="nenhum"?" selected":"")+'>Sem agrupar</option><option value="status"'+(ganttAgrupar==="status"?" selected":"")+'>Agrupar por status</option><option value="membro"'+(ganttAgrupar==="membro"?" selected":"")+'>Agrupar por responsável</option></select>'+
     '</div>'+
-    '<span class="sub" style="margin-left:auto">arraste barras e losangos · puxe as bordas para mudar datas</span></div>';
+    '<span class="sub" style="margin-left:auto">arraste as barras · puxe as bordas para mudar datas</span></div>';
   if(!lista.length){el.innerHTML=controles+'<div class="card"><div class="vazio"><div class="big">📈</div><h3>Sem ações para exibir</h3><p>Crie ações com início e prazo para vê-las na linha do tempo.</p></div></div>';return;}
   let ini=lista.map(a=>a.inicio||a.prazo).filter(Boolean).sort()[0];
   let fim=lista.map(a=>a.prazo||a.inicio).filter(Boolean).sort().slice(-1)[0];
@@ -886,7 +861,7 @@ function renderGantt(el){
     const a=l.acao;const m=membroPorId(a.membroId);const c=colunaPorId(a.status);
     const cor=m?m.cor:(c?c.cor:"#579bfc");
     const pe=progressoEfetivo(a);
-    return '<div class="g-linha" data-linha="'+a.id+'">'+avatarHTML(m)+'<span class="nome" data-abrir="'+a.id+'" title="'+esc(a.titulo)+'">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+(a.hito?"◆ ":"")+esc(a.titulo)+'</span><span class="chip" style="background:'+esc(c?c.cor:"#ccc")+'22;color:'+esc(c?c.cor:"#666")+'">'+pe+'%</span></div>';
+    return '<div class="g-linha" data-linha="'+a.id+'">'+avatarHTML(m)+'<span class="nome" data-abrir="'+a.id+'" title="'+esc(a.titulo)+'">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+esc(a.titulo)+'</span><span class="chip" style="background:'+esc(c?c.cor:"#ccc")+'22;color:'+esc(c?c.cor:"#666")+'">'+pe+'%</span></div>';
   }).join("");
 
   const barras=linhas.map((l,idx)=>{
@@ -896,7 +871,7 @@ function renderGantt(el){
     const m=membroPorId(a.membroId);const c=colunaPorId(a.status);
     const cor=m?m.cor:(c?c.cor:"#579bfc");
     const pe=progressoEfetivo(a);
-    const temBarra=(a.inicio&&a.prazo&&a.inicio!==a.prazo)||(!a.hito&&(a.inicio||a.prazo));
+    const temBarra=!!(a.inicio||a.prazo);
     let out="";
     if(temBarra){
       const x1=xDe(a.inicio||a.prazo);
@@ -907,10 +882,6 @@ function renderGantt(el){
         '<span class="fill" style="width:'+pe+'%"></span>'+
         '<span class="ala i" data-ala="i"></span><span class="lbl">'+esc(lbl)+'</span><span class="ala e" data-ala="e"></span></div>';
     }
-    if(a.hito&&a.prazo){
-      const x=xDe(a.prazo);
-      out+='<div class="g-hito'+(atrasada(a)?" rot":"")+'" data-hito="'+a.id+'" style="left:'+(x-9)+'px;top:'+(topo+13)+'px" title="'+esc(a.titulo+" — marco em "+fmtBR(a.prazo))+'"></div>';
-    }
     return out;
   }).join("");
 
@@ -918,12 +889,11 @@ function renderGantt(el){
 
   el.innerHTML=controles+
    '<div class="gantt-wrap"><div class="gantt-top">'+
-     '<span style="font-size:12px;color:var(--muted)">'+lista.length+' ações · '+lista.filter(a=>a.hito||a.entrega).length+' entregas/marcos</span>'+
-     '<span class="spacer" style="flex:1"></span>'+
-     '<span class="g-leyenda" style="border:none;padding:0">'+
-      '<span><span class="mini" style="background:#579bfc"></span> barra = período</span>'+
-      '<span><span class="mini" style="background:#fdab3d;transform:rotate(45deg)"></span> losango = marco</span>'+
-      '<span><span class="mini" style="background:var(--danger)"></span> linha = hoje</span></span>'+
+      '<span style="font-size:12px;color:var(--muted)">'+lista.length+' ações</span>'+
+      '<span class="spacer" style="flex:1"></span>'+
+      '<span class="g-leyenda" style="border:none;padding:0">'+
+       '<span><span class="mini" style="background:#579bfc"></span> barra = período</span>'+
+       '<span><span class="mini" style="background:var(--danger)"></span> linha = hoje</span></span>'+
    '</div>'+
    '<div class="gantt-corpo" id="ganttCorpo">'+
      '<div class="gantt-esq"><div class="g-cab" style="display:flex;align-items:center;padding:0 12px;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase">Ação</div>'+corpo+'</div>'+
@@ -1007,20 +977,6 @@ function configurarDndGantt(xDe,isoDe){
       document.addEventListener("mouseup",soltar);
     });
     bar.addEventListener("dblclick",()=>modalAcao(estado.acoes.find(x=>x.id===id)));
-  });
-  $$("[data-hito]",dir).forEach(h=>{
-    h.addEventListener("mousedown",e=>{
-      e.preventDefault();
-      const a=estado.acoes.find(x=>x.id===h.dataset.hito);
-      if(!a)return;
-      const startX=e.clientX;
-      const x0=xDe(a.prazo||a.inicio);
-      const mover=ev=>{const novo=isoDe(x0+(ev.clientX-startX));a.prazo=novo;if(!a.inicio)a.inicio=novo;h.style.left=(xDe(novo)-9)+"px";};
-      const soltar=()=>{document.removeEventListener("mousemove",mover);document.removeEventListener("mouseup",soltar);a.alteradoEm=agora();salvar();render();};
-      document.addEventListener("mousemove",mover);
-      document.addEventListener("mouseup",soltar);
-    });
-    h.addEventListener("dblclick",()=>modalAcao(estado.acoes.find(x=>x.id===h.dataset.hito)));
   });
 }
 
@@ -1179,10 +1135,10 @@ function importarJSON(){
 }
 function csvEscape(v){const s=String(v==null?"":v);return /[";\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function exportarCSV(){
-  const linhas=[["id","titulo","descricao","responsavel","status","prioridade","inicio","prazo","progresso","entrega","hito","tags","id_pai"].join(";")];
+  const linhas=[["id","titulo","descricao","responsavel","status","prioridade","inicio","prazo","progresso","id_pai"].join(";")];
   filtradas().forEach(a=>{
     const m=membroPorId(a.membroId),c=colunaPorId(a.status);
-    linhas.push([a.id,csvEscape(a.titulo),csvEscape(a.descricao),csvEscape(m?m.nome:""),csvEscape(c?c.nome:""),a.prioridade,a.inicio,a.prazo,a.progresso,a.entrega?"sim":"nao",a.hito?"sim":"nao",csvEscape((a.tags||[]).join(",")),a.parentId||""].join(";"));
+    linhas.push([a.id,csvEscape(a.titulo),csvEscape(a.descricao),csvEscape(m?m.nome:""),csvEscape(c?c.nome:""),a.prioridade,a.inicio,a.prazo,a.progresso,a.parentId||""].join(";"));
   });
   baixar("acoes-"+dISO(hoje())+".csv","\ufeff"+linhas.join("\r\n"),"text/csv;charset=utf-8");
   toast("CSV exportado");
@@ -1198,19 +1154,22 @@ function importarCSV(){
         const linhas=txt.split(/\r?\n/).filter(l=>l.trim());
         if(linhas.length<2)throw new Error("arquivo vazio");
         const sep=linhas[0].includes(";")?";":",";
+        const cab=lerCSV(linhas[0],sep).map(s=>s.trim().toLowerCase());
+        const ix=(nome,padrao)=>{const i=cab.indexOf(nome);return i>=0?i:padrao;};
+        const iId=ix("id",0),iTit=ix("titulo",1),iDesc=ix("descricao",2),iResp=ix("responsavel",3),
+              iStat=ix("status",4),iPrio=ix("prioridade",5),iIni=ix("inicio",6),iPrazo=ix("prazo",7),
+              iProg=ix("progresso",8),iPai=ix("id_pai",-1);
         let n=0;
         linhas.slice(1).forEach(l=>{
           const c=lerCSV(l,sep);
-          if(!c[1])return;
-          const membro=estado.membros.find(m=>m.nome.toLowerCase()===String(c[3]||"").toLowerCase());
-          const col=estado.colunas.find(x=>x.nome.toLowerCase()===String(c[4]||"").toLowerCase())||estado.colunas[0];
+          if(!c[iTit])return;
+          const membro=estado.membros.find(m=>m.nome.toLowerCase()===String(c[iResp]||"").toLowerCase());
+          const col=estado.colunas.find(x=>x.nome.toLowerCase()===String(c[iStat]||"").toLowerCase())||estado.colunas[0];
           const obj={
-            id:c[0]||uid(),titulo:c[1],descricao:c[2]||"",membroId:membro?membro.id:"",
-            status:col?col.id:"",prioridade:PRIOS.includes(c[5])?c[5]:"Media",
-            inicio:c[6]||"",prazo:c[7]||"",progresso:Math.max(0,Math.min(100,+c[8]||0)),
-            entrega:String(c[9]||"").toLowerCase()==="sim",hito:String(c[10]||"").toLowerCase()==="sim",
-            tags:String(c[11]||"").split(",").map(s=>s.trim()).filter(Boolean),
-            parentId:String(c[12]||"").trim()||null,
+            id:c[iId]||uid(),titulo:c[iTit],descricao:c[iDesc]||"",membroId:membro?membro.id:"",
+            status:col?col.id:"",prioridade:PRIOS.includes(c[iPrio])?c[iPrio]:"Media",
+            inicio:c[iIni]||"",prazo:c[iPrazo]||"",progresso:Math.max(0,Math.min(100,+c[iProg]||0)),
+            parentId:iPai>=0?String(c[iPai]||"").trim()||null:null,
             criadoEm:agora(),alteradoEm:agora()
           };
           const i=estado.acoes.findIndex(x=>x.id===obj.id);

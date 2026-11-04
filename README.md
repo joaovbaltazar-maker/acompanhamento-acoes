@@ -8,15 +8,15 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 
 | Visão | O que faz |
 |---|---|
-| **Tabela** | Planilha editável com **árvore de sub-itens** (recolher/expandir, "＋ sub"), ordenar por qualquer coluna, seleção múltipla com ações em lote, exportar/importar CSV |
+| **Tabela** | Planilha editável com **árvore de sub-ações** (recolher/expandir, botão **＋ ao lado do nome**), ordenar por qualquer coluna, seleção múltipla com ações em lote, exportar/importar CSV |
 | **Kanban** | Colunas de status com drag-and-drop, cores por responsável, prazo e progresso nos cards |
-| **Calendário** | Mês ou semana mostrando as ações **no dia do prazo**, marcos especiais, clique no dia para criar e painel **“Próximas entregas por responsável”** |
-| **Gantt** | Escala dia/semana/mês, barras arrastáveis e redimensionáveis, **losangos para entregas/marcos**, linha do “hoje”, agrupamento por status ou responsável |
+| **Calendário** | Mês ou semana mostrando as ações **no dia do prazo**, clique no dia para criar e painel **“Próximas entregas por responsável”** |
+| **Gantt** | Escala dia/semana/mês, barras arrastáveis e redimensionáveis, linha do “hoje”, agrupamento por status ou responsável |
 
 ## Recursos
 
-- CRUD de **ações** com responsável, status, prioridade, período, progresso, tags, marcação de entrega e marco
-- **Sub-itens**: vincule uma ação a um “item pai” — na Tabela elas ficam agrupadas (recolher/expandir, botão "＋ sub") e o **progresso do pai é calculado** a partir dos filhos; excluir o pai promove os filhos a itens principais
+- CRUD de **ações** com responsável, status, prioridade, período e progresso
+- **Sub-ações**: clique no botão **＋ à direita do nome** da ação (na Tabela) — abre o mesmo formulário de uma ação comum já vinculada ao pai; elas ficam agrupadas (recolher/expandir) e o **progresso do pai é calculado** a partir dos filhos; excluir o pai promove os filhos a itens principais
 - **Membros do time** com cor própria (aparece em cards, barras do Gantt e calendário)
 - **Colunas de status** personalizáveis (nome, cor, ordem)
 - Filtros globais: busca textual, responsável e prioridade
