@@ -156,7 +156,6 @@ table.grid tr.sel td{background:#e8f3ff}
 .g-barra:hover{filter:brightness(1.06)}
 .g-hito{position:absolute;width:18px;height:18px;background:var(--warn);border:2px solid #fff;transform:rotate(45deg);top:13px;z-index:6;cursor:grab;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .g-hito.rot{background:var(--primary)}
-.g-setas{position:absolute;top:44px;left:0;overflow:visible;pointer-events:none;z-index:4}
 .g-leyenda{display:flex;gap:14px;font-size:11px;color:var(--muted);padding:8px 14px;border-top:1px solid var(--border);flex-wrap:wrap}
 .g-leyenda span{display:flex;align-items:center;gap:5px}
 .mini{width:12px;height:12px;border-radius:3px;display:inline-block}
@@ -363,12 +362,10 @@ function formVal(id){const el=document.getElementById(id);return el?el.value.tri
 
 function modalAcao(a){
   const ehNova=!a;
-  const acao=a||{titulo:"",descricao:"",membroId:"",status:(estado.colunas[0]||{}).id,prioridade:"Media",inicio:dISO(hoje()),prazo:"",progresso:0,entrega:false,hito:false,dependencias:[],tags:[]};
+  const acao=a||{titulo:"",descricao:"",membroId:"",status:(estado.colunas[0]||{}).id,prioridade:"Media",inicio:dISO(hoje()),prazo:"",progresso:0,entrega:false,hito:false,tags:[]};
   const membroOpts='<option value="">— sem responsável —</option>'+estado.membros.map(m=>'<option value="'+m.id+'"'+(acao.membroId===m.id?" selected":"")+'>'+esc(m.nome)+'</option>').join("");
   const colOpts=estado.colunas.map(c=>'<option value="'+c.id+'"'+(acao.status===c.id?" selected":"")+'>'+esc(c.nome)+'</option>').join("");
   const prioOpts=PRIOS.map(p=>'<option value="'+p+'"'+(acao.prioridade===p?" selected":"")+'>'+ROT_PRIO[p]+'</option>').join("");
-  const outras=estado.acoes.filter(x=>x.id!==acao.id);
-  const depOpts=outras.map(x=>'<option value="'+x.id+'"'+((acao.dependencias||[]).includes(x.id)?" selected":"")+'>'+esc(x.titulo)+'</option>').join("");
   const corpo=
    '<div class="form-grid">'+
     '<div class="campo full"><label>Título da ação</label><input id="fTitulo" value="'+esc(acao.titulo)+'" placeholder="Ex.: Revisar plano de comunicação" autofocus></div>'+
@@ -380,7 +377,6 @@ function modalAcao(a){
     '<div class="campo"><label>Início</label><input id="fIni" type="date" value="'+esc(acao.inicio||"")+'"></div>'+
     '<div class="campo"><label>Prazo</label><input id="fPrazo" type="date" value="'+esc(acao.prazo||"")+'"></div>'+
     '<div class="campo full"><label>Tags (separadas por vírgula)</label><input id="fTags" value="'+esc((acao.tags||[]).join(", "))+'" placeholder="comunicação, financeiro"></div>'+
-    '<div class="campo full"><label>Dependências (pré-requisitos)</label><select id="fDeps" multiple size="4">'+depOpts+'</select></div>'+
     '<div class="campo full" style="display:flex;gap:22px;flex-wrap:wrap">'+
       '<label class="chk"><input type="checkbox" id="fEntrega"'+(acao.entrega?" checked":"")+'> É uma entrega</label>'+
       '<label class="chk"><input type="checkbox" id="fHito"'+(acao.hito?" checked":"")+'> Marco / milestone</label>'+
@@ -393,14 +389,13 @@ function modalAcao(a){
   $("#fSalvar").addEventListener("click",()=>{
     const titulo=formVal("fTitulo");
     if(!titulo){toast("Dê um título à ação");return;}
-    const deps=Array.from($("#fDeps").selectedOptions).map(o=>o.value);
     const novo={
       id:acao.id||uid(),titulo,descricao:$("#fDesc").value.trim(),
       membroId:$("#fMembro").value,status:$("#fStatus").value,
       prioridade:$("#fPrio").value,progresso:Math.max(0,Math.min(100,+$("#fProg").value||0)),
       inicio:$("#fIni").value,prazo:$("#fPrazo").value,
       tags:$("#fTags").value.split(",").map(s=>s.trim()).filter(Boolean),
-      dependencias:deps,entrega:$("#fEntrega").checked,hito:$("#fHito").checked,
+      entrega:$("#fEntrega").checked,hito:$("#fHito").checked,
       criadoEm:acao.criadoEm||agora(),alteradoEm:agora()
     };
     if(acao.id){
@@ -414,7 +409,6 @@ function modalAcao(a){
     if(!confirm("Excluir esta ação?"))return;
     marcarRemovido("acao",acao.id);
     estado.acoes=estado.acoes.filter(x=>x.id!==acao.id);
-    estado.acoes.forEach(x=>{if(x.dependencias)x.dependencias=x.dependencias.filter(d=>d!==acao.id);});
     salvar();fecharModal();render();toast("Ação excluída");
   });
 }
@@ -526,14 +520,14 @@ function aplicarTemplate(tipo){
     const h=dISO(hoje());
     const d=n=>dISO(addDias(hoje(),n));
     estado.acoes=[
-      {id:"a1",titulo:"Mapear processos da área",descricao:"Levantar processos atuais e gargalos com o time.",membroId:"m1",status:"c3",prioridade:"Alta",inicio:d(-10),prazo:d(-2),progresso:100,entrega:false,hito:false,dependencias:[],tags:["processos"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a2",titulo:"Reunião de alinhamento semanal",descricao:"Pauta fixa com a equipe.",membroId:"m1",status:"c2",prioridade:"Media",inicio:d(-1),prazo:d(0),progresso:50,entrega:false,hito:false,dependencias:[],tags:["reunião"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a3",titulo:"Plano de comunicação interna",descricao:"Definir canais, frequência e mensagens-chave.",membroId:"m3",status:"c2",prioridade:"Alta",inicio:d(-3),prazo:d(5),progresso:40,entrega:true,hito:false,dependencias:["a1"],tags:["comunicação"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a4",titulo:"Revisão de contratos fornecedores",descricao:"Renegociar cláusulas e prazos.",membroId:"m4",status:"c1",prioridade:"Critica",inicio:d(2),prazo:d(9),progresso:0,entrega:false,hito:false,dependencias:[],tags:["financeiro","contratos"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a5",titulo:"Painel de indicadores (KPIs)",descricao:"Dashboard mensal para a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(4),prazo:d(16),progresso:0,entrega:true,hito:false,dependencias:["a1"],tags:["indicadores"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a6",titulo:"Bloqueio: aguardando aprovação orçamento",descricao:"Orçamento do treinamento parado na diretoria.",membroId:"m4",status:"c4",prioridade:"Alta",inicio:d(-4),prazo:d(-1),progresso:20,entrega:false,hito:false,dependencias:[],tags:["bloqueio"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a7",titulo:"Workshop de capacitação",descricao:"Turma 1 do programa de treinamento.",membroId:"m3",status:"c1",prioridade:"Media",inicio:d(12),prazo:d(24),progresso:0,entrega:true,hito:false,dependencias:["a4"],tags:["treinamento"],criadoEm:agora(),alteradoEm:agora()},
-      {id:"a8",titulo:"Entrega do relatório trimestral",descricao:"Consolidado de ações e resultados do trimestre.",membroId:"m1",status:"c1",prioridade:"Critica",inicio:d(6),prazo:d(21),progresso:0,entrega:true,hito:true,dependencias:["a3","a5"],tags:["relatório"],criadoEm:agora(),alteradoEm:agora()}
+      {id:"a1",titulo:"Mapear processos da área",descricao:"Levantar processos atuais e gargalos com o time.",membroId:"m1",status:"c3",prioridade:"Alta",inicio:d(-10),prazo:d(-2),progresso:100,entrega:false,hito:false,tags:["processos"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a2",titulo:"Reunião de alinhamento semanal",descricao:"Pauta fixa com a equipe.",membroId:"m1",status:"c2",prioridade:"Media",inicio:d(-1),prazo:d(0),progresso:50,entrega:false,hito:false,tags:["reunião"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a3",titulo:"Plano de comunicação interna",descricao:"Definir canais, frequência e mensagens-chave.",membroId:"m3",status:"c2",prioridade:"Alta",inicio:d(-3),prazo:d(5),progresso:40,entrega:true,hito:false,tags:["comunicação"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a4",titulo:"Revisão de contratos fornecedores",descricao:"Renegociar cláusulas e prazos.",membroId:"m4",status:"c1",prioridade:"Critica",inicio:d(2),prazo:d(9),progresso:0,entrega:false,hito:false,tags:["financeiro","contratos"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a5",titulo:"Painel de indicadores (KPIs)",descricao:"Dashboard mensal para a diretoria.",membroId:"m2",status:"c1",prioridade:"Media",inicio:d(4),prazo:d(16),progresso:0,entrega:true,hito:false,tags:["indicadores"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a6",titulo:"Bloqueio: aguardando aprovação orçamento",descricao:"Orçamento do treinamento parado na diretoria.",membroId:"m4",status:"c4",prioridade:"Alta",inicio:d(-4),prazo:d(-1),progresso:20,entrega:false,hito:false,tags:["bloqueio"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a7",titulo:"Workshop de capacitação",descricao:"Turma 1 do programa de treinamento.",membroId:"m3",status:"c1",prioridade:"Media",inicio:d(12),prazo:d(24),progresso:0,entrega:true,hito:false,tags:["treinamento"],criadoEm:agora(),alteradoEm:agora()},
+      {id:"a8",titulo:"Entrega do relatório trimestral",descricao:"Consolidado de ações e resultados do trimestre.",membroId:"m1",status:"c1",prioridade:"Critica",inicio:d(6),prazo:d(21),progresso:0,entrega:true,hito:true,tags:["relatório"],criadoEm:agora(),alteradoEm:agora()}
     ];
   }
   estado.membros.forEach(m=>{if(!m.alteradoEm)m.alteradoEm=agora();});
@@ -816,7 +810,6 @@ function renderGantt(el){
     return out;
   }).join("");
 
-  const setas=setasGantt(linhas,ini,px);
   const hojeX=((hoje()-ini)/86400000)*px;
 
   el.innerHTML=controles+
@@ -835,7 +828,6 @@ function renderGantt(el){
        '<div class="g-fundo" style="width:'+largura+'px;background-image:repeating-linear-gradient(to right,transparent 0,transparent '+(px-1)+'px,#f0f2f5 '+(px-1)+'px,#f0f2f5 '+px+'px)">'+
          (hojeX>0&&hojeX<largura?'<div class="g-hoje" style="left:'+hojeX+'px"></div>':"")+
          barras+
-         '<svg class="g-setas" width="'+largura+'" height="'+(linhas.length*44+20)+'">'+setas+'</svg>'+
        '</div>'+
      '</div>'+
    '</div></div>';
@@ -878,28 +870,6 @@ function cabecalhoGantt(ini,totalDias,px){
   }
   return html;
   function fim0(base,dias){return addDias(base,dias);}
-}
-function setasGantt(linhas,ini,px){
-  let out="";const idxMapa={};
-  linhas.forEach((l,i)=>{if(!l.grupo)idxMapa[l.acao.id]=i;});
-  linhas.forEach(l=>{
-    if(l.grupo)return;
-    const a=l.acao;
-    (a.dependencias||[]).forEach(dep=>{
-      if(!(dep in idxMapa)||!(a.id in idxMapa))return;
-      const y1=44+idxMapa[dep]*44+22;
-      const y2=44+idxMapa[a.id]*44+22;
-      const pred=estado.acoes.find(x=>x.id===dep);
-      if(!pred)return;
-      const x1=xDe(pred.prazo||pred.inicio||dISO(hoje()))+ (px>20?px:px*2);
-      const x2=xDe(a.inicio||a.prazo||dISO(hoje()));
-      const mx=Math.min(x1,x2)-8;
-      out+='<path d="M '+x1+' '+y1+' H '+mx+' V '+y2+' H '+(x2-5)+'" fill="none" stroke="#9699a6" stroke-width="1.5"/>'+
-           '<path d="M '+(x2-5)+' '+(y2-4)+' L '+x2+' '+y2+' L '+(x2-5)+' '+(y2+4)+' Z" fill="#9699a6"/>';
-    });
-  });
-  return out;
-  function xDe(iso){return ((parseD(iso)||hoje())-ini)/86400000*px;}
 }
 function configurarDndGantt(xDe,isoDe){
   const dir=$("#ganttDir");if(!dir)return;
@@ -1208,7 +1178,7 @@ function importarCSV(){
             inicio:c[6]||"",prazo:c[7]||"",progresso:Math.max(0,Math.min(100,+c[8]||0)),
             entrega:String(c[9]||"").toLowerCase()==="sim",hito:String(c[10]||"").toLowerCase()==="sim",
             tags:String(c[11]||"").split(",").map(s=>s.trim()).filter(Boolean),
-            dependencias:[],criadoEm:agora(),alteradoEm:agora()
+            criadoEm:agora(),alteradoEm:agora()
           };
           const i=estado.acoes.findIndex(x=>x.id===obj.id);
           if(i>=0)estado.acoes[i]=Object.assign(estado.acoes[i],obj,{alteradoEm:agora()});

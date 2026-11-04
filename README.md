@@ -12,7 +12,7 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 | **Tabela** | Planilha editável: ordenar por qualquer coluna, seleção múltipla com ações em lote, exportar/importar CSV |
 | **Kanban** | Colunas de status com drag-and-drop, cores por responsável, prazo e progresso nos cards |
 | **Calendário** | Mês ou semana, tarefas ocupando o período início→prazo, marcos especiais, clique no dia para criar, filtro de responsável na barra superior |
-| **Gantt** | Escala dia/semana/mês, barras arrastáveis e redimensionáveis, **losangos para entregas/marcos**, setas de dependência, linha do “hoje”, agrupamento por status ou responsável |
+| **Gantt** | Escala dia/semana/mês, barras arrastáveis e redimensionáveis, **losangos para entregas/marcos**, linha do “hoje”, agrupamento por status ou responsável |
 
 ## Recursos
 
