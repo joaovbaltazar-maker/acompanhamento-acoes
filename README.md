@@ -8,21 +8,21 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 
 | Visão | O que faz |
 |---|---|
-| **Dashboard** | KPIs (total, atrasadas, em andamento, concluídas, entregas do mês, taxa de conclusão), rosca por status, carga por responsável, listas de atrasadas e próximos 7 dias |
-| **Tabela** | Planilha editável: ordenar por qualquer coluna, seleção múltipla com ações em lote, exportar/importar CSV |
+| **Tabela** | Planilha editável com **árvore de sub-itens** (recolher/expandir, "＋ sub"), ordenar por qualquer coluna, seleção múltipla com ações em lote, exportar/importar CSV |
 | **Kanban** | Colunas de status com drag-and-drop, cores por responsável, prazo e progresso nos cards |
-| **Calendário** | Mês ou semana, tarefas ocupando o período início→prazo, marcos especiais, clique no dia para criar, filtro de responsável na barra superior |
+| **Calendário** | Mês ou semana mostrando as ações **no dia do prazo**, marcos especiais, clique no dia para criar e painel **“Próximas entregas por responsável”** |
 | **Gantt** | Escala dia/semana/mês, barras arrastáveis e redimensionáveis, **losangos para entregas/marcos**, linha do “hoje”, agrupamento por status ou responsável |
 
 ## Recursos
 
-- CRUD de **ações** com responsável, status, prioridade, período, progresso, tags, dependências, marcação de entrega e marco
+- CRUD de **ações** com responsável, status, prioridade, período, progresso, tags, marcação de entrega e marco
+- **Sub-itens**: vincule uma ação a um “item pai” — na Tabela elas ficam agrupadas (recolher/expandir, botão "＋ sub") e o **progresso do pai é calculado** a partir dos filhos; excluir o pai promove os filhos a itens principais
 - **Membros do time** com cor própria (aparece em cards, barras do Gantt e calendário)
 - **Colunas de status** personalizáveis (nome, cor, ordem)
 - Filtros globais: busca textual, responsável e prioridade
-- **Template inicial** “Ações da Área” com dados de exemplo
-- Exportar/importar **JSON** (backup completo) e **CSV**
-- Atalhos: `N` nova ação · `/` buscar · `1`–`5` trocar visão · `Esc` fechar
+- **Template inicial** “Ações da Área” com 10 ações de exemplo (incluindo sub-itens)
+- Exportar/importar **JSON** (backup completo) e **CSV** (com coluna `id_pai`)
+- Atalhos: `N` nova ação · `/` buscar · `1`–`4` trocar visão · `Esc` fechar
 - Auto-save local a cada alteração + sincronização automática com o GitHub
 
 ## Como publicar no GitHub Pages (uma vez)

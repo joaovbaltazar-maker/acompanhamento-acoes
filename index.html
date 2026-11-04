@@ -288,16 +288,22 @@ function filhosDe(id){return estado.acoes.filter(x=>x.parentId===id);}
 function temFilhos(id){return estado.acoes.some(x=>x.parentId===id);}
 function ehDescendente(id,ancestral){
   let atual=estado.acoes.find(x=>x.id===id);
+  const vis=new Set();
   while(atual&&atual.parentId){
     if(atual.parentId===ancestral)return true;
+    if(vis.has(atual.id))return false;
+    vis.add(atual.id);
     atual=estado.acoes.find(x=>x.id===atual.parentId);
   }
   return false;
 }
-function progressoEfetivo(a){
+function progressoEfetivo(a,vis){
+  vis=vis||new Set();
+  if(vis.has(a.id))return a.progresso||0;
+  vis.add(a.id);
   const f=filhosDe(a.id);
   if(!f.length)return a.progresso||0;
-  const s=f.reduce((n,x)=>n+progressoEfetivo(x),0);
+  const s=f.reduce((n,x)=>n+progressoEfetivo(x,vis),0);
   return Math.round(s/f.length);
 }
 function membroPorId(id){return estado.membros.find(m=>m.id===id)||null;}
