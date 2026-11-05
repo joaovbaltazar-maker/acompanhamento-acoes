@@ -366,10 +366,10 @@ function renderTopo(){
   sel.value=atual;
   const s=$("#syncStatus");
   s.className="sync";
-  if(!cfg.token){s.innerHTML='<span class="pip"></span><span class="tx">somente local</span>';}
-  else if(sincStatus.erro){s.className="sync erro";s.innerHTML='<span class="pip"></span><span class="tx">erro de sync</span>';}
+  if(sincStatus.erro){s.className="sync erro";s.innerHTML='<span class="pip"></span><span class="tx">erro de sync</span>';}
   else if(sincStatus.proc){s.className="sync proc";s.innerHTML='<span class="pip"></span><span class="tx">sincronizando…</span>';}
-  else{s.className="sync ok";s.innerHTML='<span class="pip"></span><span class="tx">sincronizado</span>';}
+  else if(modoDireto()||servidorDisponivel()){s.className="sync ok";s.innerHTML='<span class="pip"></span><span class="tx">sincronizado</span>';}
+  else{s.innerHTML='<span class="pip"></span><span class="tx">somente local</span>';}
 }
 function irPara(v){visaoAtual=v;render();}
 
@@ -988,12 +988,18 @@ function configurarDndGantt(xDe,isoDe){
 let sincStatus={proc:false,erro:false};
 function b64enc(s){return btoa(unescape(encodeURIComponent(s)));}
 function b64dec(s){return decodeURIComponent(escape(atob(s)));}
+function modoDireto(){return !!(cfg.token&&cfg.usuario&&cfg.repo);}
+function servidorDisponivel(){return !modoDireto()&&typeof fetch==="function"&&!!location.host;}
 function apiURL(){
-  return "https://api.github.com/repos/"+encodeURIComponent(cfg.usuario)+"/"+encodeURIComponent(cfg.repo)+"/contents/"+cfg.caminho.split("/").map(encodeURIComponent).join("/");
+  if(modoDireto())return "https://api.github.com/repos/"+encodeURIComponent(cfg.usuario)+"/"+encodeURIComponent(cfg.repo)+"/contents/"+cfg.caminho.split("/").map(encodeURIComponent).join("/");
+  return "api/dados";
 }
-function cabecalho(){return {Authorization:"Bearer "+cfg.token,Accept:"application/vnd.github+json","Content-Type":"application/json"};}
+function cabecalho(){
+  if(modoDireto())return {Authorization:"Bearer "+cfg.token,Accept:"application/vnd.github+json","Content-Type":"application/json"};
+  return {"Content-Type":"application/json"};
+}
 function agendarSync(){
-  if(!cfg.token)return;
+  if(!modoDireto()&&!servidorDisponivel())return;
   clearTimeout(timerSync);
   timerSync=setTimeout(()=>sincronizar(),3000);
 }
@@ -1043,7 +1049,7 @@ function marcarRemovido(tipo,id){
   if(estado.removidos.length>300)estado.removidos=estado.removidos.slice(-300);
 }
 async function sincronizar(manual){
-  if(!cfg.token||!cfg.usuario||!cfg.repo){if(manual)toast("Configure o GitHub em Configurações");return;}
+  if(!modoDireto()&&!servidorDisponivel()){if(manual)toast("Sincronização indisponível aqui — configure o GitHub em Configurações");return;}
   sincStatus={proc:true,erro:false};renderTopo();
   try{
     const resp=await fetch(apiURL(),{headers:cabecalho()});
@@ -1088,17 +1094,17 @@ async function sincronizar(manual){
 function modalConfig(){
   const corpo=
   '<div class="passos">'+
-   '<div class="passo"><div class="n"></div><div class="ct">Crie um token de acesso no GitHub (grátis): acesse <a href="https://github.com/settings/tokens/new?scopes=repo&description=Acompanhamento" target="_blank" rel="noopener">github.com/settings/tokens/new</a>, marque o escopo <code>repo</code>, clique em <b>Generate token</b> e copie o código.</div></div>'+
-   '<div class="passo"><div class="n"></div><div class="ct">Informe abaixo o token, o seu usuário do GitHub e o repositório público onde os dados serão salvos. <b>Cada membro do time faz isso uma vez</b> — todos sincronizam no mesmo arquivo <code>dados.json</code>.</div></div>'+
-   '<div class="passo"><div class="n"></div><div class="ct">Pronto! O app salva sozinho a cada alteração. Use “Sincronizar agora” para forçar uma atualização imediata.</div></div>'+
+   '<div class="passo"><div class="n"></div><div class="ct"><b>Padrão — sem token:</b> os dados ficam no servidor do site (configurado uma única vez no Vercel pelas variáveis <code>GH_TOKEN</code>, <code>GH_OWNER</code> e <code>GH_REPO</code>). <b>Ninguém do time precisa configurar nada</b> — todos sincronizam sozinho ao abrir.</div></div>'+
+   '<div class="passo"><div class="n"></div><div class="ct"><b>Opcional — sincronizar direto com o GitHub:</b> preencha abaixo um token (<a href="https://github.com/settings/tokens/new?scopes=repo&description=Acompanhamento" target="_blank" rel="noopener">criar token</a> com escopo <code>repo</code>), usuário e repositório. Deixe tudo vazio para usar o servidor do site.</div></div>'+
+   '<div class="passo"><div class="n"></div><div class="ct">Pronto! O app salva sozinho a cada alteração. Use “Testar conexão” para forçar uma atualização imediata.</div></div>'+
   '</div>'+
   '<div class="form-grid" style="margin-top:16px">'+
-   '<div class="campo full"><label>Token do GitHub (PAT)</label><input type="password" id="cToken" value="'+esc(cfg.token)+'" placeholder="ghp_…"></div>'+
+   '<div class="campo full"><label>Token do GitHub (opcional)</label><input type="password" id="cToken" value="'+esc(cfg.token)+'" placeholder="vazio = servidor do site"></div>'+
    '<div class="campo"><label>Usuário</label><input id="cUser" value="'+esc(cfg.usuario)+'" placeholder="seu-usuario"></div>'+
    '<div class="campo"><label>Repositório</label><input id="cRepo" value="'+esc(cfg.repo)+'" placeholder="acompanhamento-acoes"></div>'+
    '<div class="campo full"><label>Arquivo de dados</label><input id="cPath" value="'+esc(cfg.caminho||"dados.json")+'"></div>'+
   '</div>'+
-  '<div class="dica">O token fica salvo <b>só neste navegador</b>. Se alguém editar ao mesmo tempo, o app mescla as alterações por data (nada se perde por último salvador).</div>'+
+  '<div class="dica">No modo direto o token fica salvo <b>só neste navegador</b>. Se alguém editar ao mesmo tempo, o app mescla as alterações por data (nada se perde por último salvador).</div>'+
   '<h3 style="font-size:14px;margin:18px 0 8px">Backup e arquivos</h3>'+
   '<div style="display:flex;gap:10px;flex-wrap:wrap">'+
    '<button class="btn btn-sm" id="cfgExpJson">⬇ Exportar JSON</button>'+
@@ -1108,11 +1114,16 @@ function modalConfig(){
   '</div>';
   const pe='<button class="btn" id="cfgTestar">Testar conexão</button><button class="btn" data-fechar>Fechar</button><button class="btn btn-primary" id="cfgSalvar">Salvar configuração</button>';
   abrirModal("⚙️ Configurações",corpo,pe,"flargo");
-  $("#cfgSalvar").addEventListener("click",()=>{
+  const pegarForm=()=>{
     cfg.token=formVal("cToken");cfg.usuario=formVal("cUser");cfg.repo=formVal("cRepo");cfg.caminho=formVal("cPath")||"dados.json";
-    salvarCfg();fecharModal();renderTopo();toast("Configuração salva");sincronizar(true);
+    if(cfg.token&&(!cfg.usuario||!cfg.repo)){toast("Preencha usuário e repositório, ou apague o token para usar o servidor do site");return false;}
+    salvarCfg();return true;
+  };
+  $("#cfgSalvar").addEventListener("click",()=>{
+    if(!pegarForm())return;
+    fecharModal();renderTopo();toast("Configuração salva");sincronizar(true);
   });
-  $("#cfgTestar").addEventListener("click",()=>{cfg.token=formVal("cToken");cfg.usuario=formVal("cUser");cfg.repo=formVal("cRepo");cfg.caminho=formVal("cPath")||"dados.json";salvarCfg();sincronizar(true);});
+  $("#cfgTestar").addEventListener("click",()=>{if(!pegarForm())return;sincronizar(true);});
   $("#cfgExpJson").addEventListener("click",exportarJSON);
   $("#cfgImpJson").addEventListener("click",importarJSON);
   $("#cfgExpCsv").addEventListener("click",exportarCSV);
@@ -1258,7 +1269,7 @@ function init(){
   }else{
     render();
   }
-  if(cfg.token&&cfg.usuario&&cfg.repo)sincronizar(false);
+  if(modoDireto()||servidorDisponivel())sincronizar(false);
   else renderTopo();
   window.addEventListener("beforeunload",()=>{if(cfg.token&&timerSync){clearTimeout(timerSync);}});
 }

@@ -2,7 +2,7 @@
 
 Aplicação **single-file** (um único `index.html`) para o acompanhamento das ações da área: responsáveis, prazos, calendário de responsabilidades, entregas e Gantt — com várias visões para escolher, inspirada em OpenProject, Vikunja, Plane e monday.com.
 
-✅ Arquivo único · ✅ Sem build · ✅ Funciona offline (localStorage) · ✅ Sincronização automática com o time via GitHub (grátis)
+✅ Arquivo único · ✅ Sem build · ✅ Funciona offline (localStorage) · ✅ Sincronização automática com o time — **ninguém precisa de token**
 
 ## Visões
 
@@ -23,7 +23,7 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 - **Template inicial** “Ações da Área” com 10 ações de exemplo (incluindo sub-itens)
 - Exportar/importar **JSON** (backup completo) e **CSV** (com coluna `id_pai`)
 - Atalhos: `N` nova ação · `/` buscar · `1`–`4` trocar visão · `Esc` fechar
-- Auto-save local a cada alteração + sincronização automática com o GitHub
+- Auto-save local a cada alteração + sincronização automática com o time (sem login nem token)
 
 ## Como publicar no Vercel (uma vez)
 
@@ -31,24 +31,35 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 2. Acesse [vercel.com](https://vercel.com) → **Log in with GitHub**.
 3. **Add New… → Import Git Repository** → escolha o repositório.
 4. Em *Framework Preset* deixe **Other** (sem build command, sem output dir) → **Deploy**.
-5. Pronto: o site fica em `https://SEU_PROJETO.vercel.app` e **todo `git push` para `main` publica sozinho**.
+5. **Configure o token do servidor (só o administrador):** crie um PAT em [github.com/settings/tokens/new](https://github.com/settings/tokens/new?scopes=repo&description=Acompanhamento) com escopo **repo** e, em **Project → Settings → Environment Variables**, adicione:
+
+   | Variável | Valor |
+   |---|---|
+   | `GH_TOKEN` | o token criado acima |
+   | `GH_OWNER` | seu usuário do GitHub (ex.: `SEU_USUARIO`) |
+   | `GH_REPO` | o repositório (ex.: `acompanhamento-acoes`) |
+
+   Depois vá em **Deployments → ⋯ → Redeploy** (env vars só valem para deploys novos).
+6. Pronto: o site fica em `https://SEU_PROJETO.vercel.app` e **todo `git push` para `main` publica sozinho**.
 
 > Para desativar o GitHub Pages antigo: no repositório → **Settings → Pages → Branch: None → Save**.
 
 ### Estrutura do deploy
 
-Zero dependências externas, zero build — o Vercel serve o `index.html` direto da raiz. Não há `vercel.json` nem etapa de build.
+Zero dependências externas, zero build — o Vercel serve o `index.html` da raiz e a função `api/dados.js` (que guarda o token do GitHub como segredo do servidor). Não há `vercel.json` nem etapa de build.
 
 ## Como o time sincroniza (grátis, automático)
 
-Cada integrante faz **uma única configuração** no app:
+**Ninguém configura nada.** O token fica no servidor do Vercel (variável `GH_TOKEN`) e o navegador conversa apenas com `/api/dados`:
 
-1. Abra o site e clique em **⚙️ Configurações**.
-2. Crie um token em [github.com/settings/tokens/new](https://github.com/settings/tokens/new?scopes=repo&description=Acompanhamento) com o escopo **repo** marcado, copie o código.
-3. Cole o token, informe seu **usuário** e o **repositório** (ex.: `acompanhamento-acoes`) e clique em **Salvar configuração**.
-4. Pronto: o app baixa os dados ao abrir e envia alterações automaticamente (≈3 s após cada edição). O status fica no canto superior direito.
+1. Abra o site — ele baixa os dados ao abrir e envia alterações sozinho (≈3 s após cada edição). O status fica no canto superior direito (**sincronizado** = tudo certo).
+2. Pronto. Todos veem as mesmas ações no mesmo `dados.json` do repositório.
 
-> O token fica salvo apenas no navegador de cada pessoa. Se duas pessoas editarem ao mesmo tempo, as alterações são **mescladas por data** — nada se perde por “último salvador”, e exclusões não ressuscitam.
+> Se duas pessoas editarem ao mesmo tempo, as alterações são **mescladas por data** — nada se perde por “último salvador”, exclusões não ressuscitam e membros/colunas são unidos registro a registro.
+
+### Modo avançado: sincronizar direto com o GitHub
+
+**⚙️ Configurações** aceita, opcionalmente, um token pessoal (usuário + repositório) para falar direto com a API do GitHub, sem passar pelo servidor — útil para desenvolvimento local. Deixe os campos vazio para usar o modo padrão (servidor do site).
 
 ### Alternativa sem GitHub
 **Configurações → Exportar JSON** e troquem o arquivo entre si; **Importar JSON** carrega os dados. No mínimo, use o export como backup periódico.
@@ -57,7 +68,8 @@ Cada integrante faz **uma única configuração** no app:
 
 ```
 .
-├── index.html   # aplicação inteira (HTML + CSS + JS)
+├── index.html     # aplicação inteira (HTML + CSS + JS)
+├── api/dados.js   # função do Vercel: proxy do GitHub com o token do servidor
 └── README.md
 ```
 
