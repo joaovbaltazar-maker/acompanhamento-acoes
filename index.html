@@ -182,7 +182,7 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
 .g-hoje{position:absolute;top:0;bottom:0;width:2px;background:var(--danger);z-index:4;pointer-events:none}
 .g-hoje::before{content:"hoje";position:absolute;top:-40px;left:-14px;font-size:10px;font-weight:700;color:#fff;background:var(--danger);padding:2px 7px;border-radius:5px}
 .g-barra{position:absolute;height:26px;border-radius:8px;top:9px;cursor:grab;z-index:5;display:flex;align-items:center;font-size:11px;font-weight:600;color:#fff;overflow:visible;box-shadow:0 1px 3px rgba(0,0,0,.18);user-select:none}
-.g-barra .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(0,0,0,.25);border-radius:8px 0 0 8px;pointer-events:none}
+.g-barra .fill{position:absolute;left:0;top:0;bottom:0;background:rgba(0,0,0,.35);border-right:2px solid rgba(255,255,255,.9);border-radius:8px 0 0 8px;pointer-events:none}
 .g-barra .lbl{position:relative;z-index:1;padding:0 9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .g-barra .ala{position:absolute;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:2}
 .g-barra .ala.e{right:-3px} .g-barra .ala.i{left:-3px}
@@ -264,6 +264,7 @@ let selecao = new Set();
 let recolhidos = new Set();
 let ganttZoom = "semana";
 let ganttAgrupar = "nenhum";
+let ganttScroll = null;
 let calModo = "mes";
 let calRef = new Date();
 let timerSync = null;
@@ -826,6 +827,17 @@ function calSemanaHTML(lista){
   return html+'</div>';
 }
 
+function ordenarPrazo(lista){
+  return lista.slice().sort((x,y)=>{
+    const px=x.prazo||"",py=y.prazo||"";
+    if(!px&&py)return 1;
+    if(px&&!py)return -1;
+    if(px!==py)return px.localeCompare(py);
+    const ix=x.inicio||"",iy=y.inicio||"";
+    if(ix!==iy)return ix.localeCompare(iy);
+    return String(x.titulo||"").localeCompare(String(y.titulo||""),"pt-BR");
+  });
+}
 function renderGantt(el){
   const lista=filtradas().slice();
   const controles='<div class="view-titulo"><h1>📈 Gantt</h1>'+
@@ -839,6 +851,8 @@ function renderGantt(el){
   let fim=lista.map(a=>a.prazo||a.inicio).filter(Boolean).sort().slice(-1)[0];
   ini=parseD(ini)||hoje();fim=parseD(fim)||hoje();
   ini=addDias(ini,-7);fim=addDias(fim,14);
+  if(ini>hoje())ini=addDias(hoje(),-7);
+  if(fim<hoje())fim=addDias(hoje(),14);
   const px=ganttZoom==="dia"?44:ganttZoom==="semana"?14:4.6;
   const totalDias=Math.max(30,Math.round((fim-ini)/86400000));
   const largura=totalDias*px;
@@ -857,8 +871,9 @@ function renderGantt(el){
 
   let linhas=[];grupos.forEach(g=>{
     if(g.rot)linhas.push({grupo:true,rot:g.rot,cor:g.cor});
-    ordenar(g.itens,"inicio",1).forEach(a=>linhas.push({acao:a}));
+    ordenarPrazo(g.itens).forEach(a=>linhas.push({acao:a}));
   });
+  const tops=[];let yy=0;linhas.forEach(l=>{tops.push(yy);yy+=l.grupo?34:44;});
 
   const cab=cabecalhoGantt(ini,totalDias,px);
   const corpo=linhas.map((l,i)=>{
@@ -872,7 +887,7 @@ function renderGantt(el){
   const barras=linhas.map((l,idx)=>{
     if(l.grupo)return "";
     const a=l.acao;
-    const topo=44+idx*44;
+    const topo=tops[idx];
     const m=membroPorId(a.membroId);const c=colunaPorId(a.status);
     const cor=m?m.cor:(c?c.cor:"#579bfc");
     const pe=progressoEfetivo(a);
@@ -884,7 +899,7 @@ function renderGantt(el){
       const w=Math.max(10,x2-x1);
       const lbl=a.titulo.length>Math.floor(w/7)?a.titulo.slice(0,Math.max(3,Math.floor(w/7)-1))+"…":a.titulo;
       out+='<div class="g-barra" data-barra="'+a.id+'" style="left:'+x1+'px;width:'+w+'px;top:'+(topo+9)+'px;background:'+esc(cor)+'" title="'+esc(a.titulo+" · "+fmtBR(a.inicio||a.prazo)+" → "+fmtBR(a.prazo||a.inicio))+'">'+
-        '<span class="fill" style="width:'+pe+'%"></span>'+
+        (pe>0?'<span class="fill" style="width:'+Math.min(100,pe)+'%"></span>':'')+
         '<span class="ala i" data-ala="i"></span><span class="lbl">'+esc(lbl)+'</span><span class="ala e" data-ala="e"></span></div>';
     }
     return out;
@@ -898,6 +913,7 @@ function renderGantt(el){
       '<span class="spacer" style="flex:1"></span>'+
       '<span class="g-leyenda" style="border:none;padding:0">'+
        '<span><span class="mini" style="background:#579bfc"></span> barra = período</span>'+
+       '<span><span class="mini" style="background:rgba(0,0,0,.35)"></span> parte escura = evolução</span>'+
        '<span><span class="mini" style="background:var(--danger)"></span> linha = hoje</span></span>'+
    '</div>'+
    '<div class="gantt-corpo" id="ganttCorpo">'+
@@ -910,6 +926,13 @@ function renderGantt(el){
        '</div>'+
      '</div>'+
    '</div></div>';
+
+  const cp=$("#ganttCorpo");
+  if(cp){
+    if(ganttScroll&&ganttScroll.largura===largura){cp.scrollLeft=ganttScroll.x;cp.scrollTop=ganttScroll.y;}
+    else cp.scrollLeft=Math.max(0,300+hojeX-Math.round(cp.clientWidth/2));
+    cp.onscroll=()=>{ganttScroll={x:cp.scrollLeft,y:cp.scrollTop,largura:largura};};
+  }
 
   $("#gZoom").addEventListener("change",e=>{ganttZoom=e.target.value;render();});
   $("#gAgr").addEventListener("change",e=>{ganttAgrupar=e.target.value;render();});
