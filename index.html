@@ -59,6 +59,12 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--text);lette
 .card{background:var(--card);border:1px solid var(--hair);border-radius:16px;padding:18px;box-shadow:var(--shadow-soft)}
 .chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:600;white-space:nowrap;letter-spacing:0}
 .avatar{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.avatar[data-foco]{cursor:pointer}
+.avatar[data-foco]:hover{filter:brightness(1.12)}
+.avatar.foco-on{box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 0 0 2px #fff,0 0 0 4px var(--primary)}
+.foco-off{opacity:.26;filter:grayscale(.75);transition:opacity .15s ease,filter .15s ease}
+.chip-foco{display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);border-radius:980px;padding:5px 8px 5px 12px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.chip-foco .x{border:0;background:transparent;color:inherit;font-size:15px;cursor:pointer;line-height:1;padding:0 1px;font-weight:700}
 .avatar.lg{width:34px;height:34px;font-size:13px}
 .prio-Critica{background:rgba(228,66,88,.13);color:#c0182f}
 .prio-Alta{background:rgba(255,159,10,.16);color:#b35c00}
@@ -239,6 +245,7 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
         <option value="Media">Média</option>
         <option value="Baixa">Baixa</option>
       </select>
+      <span id="chipFoco"></span>
       <button class="btn btn-primary" id="btnNova">＋ Nova ação</button>
       <span class="spacer"></span>
       <div class="sync" id="syncStatus"><span class="pip"></span><span class="tx">local</span></div>
@@ -265,6 +272,7 @@ let recolhidos = new Set();
 let ganttZoom = "semana";
 let ganttAgrupar = "nenhum";
 let ganttScroll = null;
+let focoMembro = "";
 let calModo = "mes";
 let calRef = new Date();
 let timerSync = null;
@@ -299,7 +307,8 @@ function progressoEfetivo(a,vis){
 function membroPorId(id){return estado.membros.find(m=>m.id===id)||null;}
 function colunaPorId(id){return estado.colunas.find(c=>c.id===id)||null;}
 function inicial(nome){const p=String(nome||"?").trim().split(/\s+/);return ((p[0]||"?")[0]+(p[1]?p[1][0]:"")).toUpperCase();}
-function avatarHTML(m,tam){if(!m)return '<span class="avatar" style="background:#b6bcc6">?</span>';return '<span class="avatar'+(tam==="lg"?" lg":"")+'" style="background:'+esc(m.cor)+'" title="'+esc(m.nome)+'">'+esc(inicial(m.nome))+'</span>';}
+function avatarHTML(m,tam){if(!m)return '<span class="avatar" style="background:#b6bcc6">?</span>';const on=focoMembro===m.id;return '<span class="avatar'+(tam==="lg"?" lg":"")+(on?" foco-on":"")+'" data-foco="'+m.id+'" title="'+esc(m.nome)+' — clique para focar" style="background:'+esc(m.cor)+'">'+esc(inicial(m.nome))+'</span>';}
+function dimA(a){return focoMembro&&a.membroId!==focoMembro?" foco-off":"";}
 function chipPrio(p){return '<span class="chip prio-'+p+'">'+esc(ROT_PRIO[p]||p)+'</span>';}
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
 
@@ -365,6 +374,12 @@ function renderTopo(){
   const atual=sel.value;
   sel.innerHTML='<option value="">Responsável: todos</option>'+estado.membros.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+'</option>').join("");
   sel.value=atual;
+  if(focoMembro&&!membroPorId(focoMembro))focoMembro="";
+  const cf=$("#chipFoco");
+  const fm=focoMembro?membroPorId(focoMembro):null;
+  cf.innerHTML=fm?'<span class="chip-foco">🎯 Foco: '+esc(fm.nome)+'<button class="x" id="focoX" title="Limpar foco (Esc)">×</button></span>':"";
+  const fx=$("#focoX");
+  if(fx)fx.addEventListener("click",()=>{focoMembro="";render();});
   const s=$("#syncStatus");
   s.className="sync";
   if(sincStatus.erro){s.className="sync erro";s.innerHTML='<span class="pip"></span><span class="tx">erro de sync</span>';}
@@ -604,7 +619,7 @@ function renderTabela(el){
     const temF=filhos.length>0;
     const rec=temF&&recolhidos.has(a.id);
     const pe=progressoEfetivo(a);
-    return '<tr class="'+sel+(nivel>0?" sub":"")+'" data-id="'+a.id+'">'+
+    return '<tr class="'+sel+(nivel>0?" sub":"")+dimA(a)+'" data-id="'+a.id+'">'+
       '<td class="chkcell"><input type="checkbox" data-sel="'+a.id+'"'+(selecao.has(a.id)?" checked":"")+'></td>'+
       '<td class="tit-acoes'+(nivel>0?" c-tit":"")+'">'+
         (temF?'<span class="twisty'+(rec?" fechado":"")+'" data-twisty="'+a.id+'" title="Recolher/expandir">'+(rec?"▶":"▼")+'</span>':"")+
@@ -715,7 +730,7 @@ function kcardHTML(a){
   const cor=c?c.cor:"#c4c4c4";
   const pe=progressoEfetivo(a);
   const nf=filhosDe(a.id).length;
-  return '<div class="kcard'+(a.parentId?" subcard":"")+'" draggable="true" data-id="'+a.id+'" data-abrir="'+a.id+'" style="border-top:3px solid '+esc(cor)+'">'+
+  return '<div class="kcard'+(a.parentId?" subcard":"")+dimA(a)+'" draggable="true" data-id="'+a.id+'" data-abrir="'+a.id+'" style="border-top:3px solid '+esc(cor)+'">'+
     '<div class="kt">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+esc(a.titulo)+
       (nf?'<span class="sub-count">'+nf+' sub</span>':"")+'</div>'+
     '<div class="kmeta">'+chipPrio(a.prioridade)+
@@ -760,7 +775,7 @@ function calItemHTML(a,iso){
   const m=membroPorId(a.membroId);
   const c=colunaPorId(a.status);
   const cor=m?m.cor:(c?c.cor:"#579bfc");
-  return '<div class="cal-item" data-abrircal="'+a.id+'" style="background:'+cor+'1a" title="'+esc(a.titulo+" — "+(m?m.nome:"")+(a.prazo?" · prazo "+fmtBR(a.prazo):""))+'"><span class="pd" style="background:'+esc(cor)+'"></span><span class="t">'+esc(a.titulo)+'</span></div>';
+  return '<div class="cal-item'+dimA(a)+'" data-abrircal="'+a.id+'" style="background:'+cor+'1a" title="'+esc(a.titulo+" — "+(m?m.nome:"")+(a.prazo?" · prazo "+fmtBR(a.prazo):""))+'"><span class="pd" style="background:'+esc(cor)+'"></span><span class="t">'+esc(a.titulo)+'</span></div>';
 }
 function entregasPanelHTML(lista){
   const hojeISO=dISO(hoje());
@@ -781,7 +796,8 @@ function entregasPanelHTML(lista){
     const resto=gr.itens.length>6?'<div style="font-size:11.5px;color:var(--muted);padding-top:7px">+ '+(gr.itens.length-6)+' outra(s)…</div>':"";
     const nome=gr.m?gr.m.nome:"Sem responsável";
     const fn=gr.m?(gr.m.funcao||"—"):"Ações não atribuídas";
-    return '<div class="ep-card"><div class="ep-cab">'+avatarHTML(gr.m,"lg")+
+    const epDim=(focoMembro&&(!gr.m||gr.m.id!==focoMembro))?" foco-off":"";
+    return '<div class="ep-card'+epDim+'"><div class="ep-cab">'+avatarHTML(gr.m,"lg")+
       '<div><div class="nm">'+esc(nome)+'</div><div class="fn">'+esc(fn)+'</div></div>'+
       '<span class="qtd">'+gr.itens.length+'</span></div>'+lis+resto+'</div>';
   }).join("");
@@ -863,25 +879,25 @@ function renderGantt(el){
   if(ganttAgrupar==="status"){
     grupos=estado.colunas.slice().sort((a,b)=>a.ordem-b.ordem).map(c=>({rot:c.nome,cor:c.cor,itens:lista.filter(a=>a.status===c.id)}));
   }else if(ganttAgrupar==="membro"){
-    grupos=estado.membros.map(m=>({rot:m.nome,cor:m.cor,itens:lista.filter(a=>a.membroId===m.id)}));
+    grupos=estado.membros.map(m=>({rot:m.nome,cor:m.cor,itens:lista.filter(a=>a.membroId===m.id),mid:m.id}));
     const sem=lista.filter(a=>!a.membroId);
-    if(sem.length)grupos.push({rot:"Sem responsável",cor:"#b6bcc6",itens:sem});
+    if(sem.length)grupos.push({rot:"Sem responsável",cor:"#b6bcc6",itens:sem,mid:null});
     grupos=grupos.filter(g=>g.itens.length);
   }else grupos=[{rot:null,cor:null,itens:lista}];
 
   let linhas=[];grupos.forEach(g=>{
-    if(g.rot)linhas.push({grupo:true,rot:g.rot,cor:g.cor});
+    if(g.rot)linhas.push({grupo:true,rot:g.rot,cor:g.cor,mid:g.mid});
     ordenarPrazo(g.itens).forEach(a=>linhas.push({acao:a}));
   });
   const tops=[];let yy=0;linhas.forEach(l=>{tops.push(yy);yy+=l.grupo?34:44;});
 
   const cab=cabecalhoGantt(ini,totalDias,px);
   const corpo=linhas.map((l,i)=>{
-    if(l.grupo)return '<div class="g-linha grupo" style="height:34px"><span class="mini" style="background:'+esc(l.cor)+'"></span>'+esc(l.rot)+' ('+grupos.find(g=>g.rot===l.rot).itens.length+')</div>';
+    if(l.grupo){const gd=(focoMembro&&l.mid!==undefined&&l.mid!==focoMembro)?" foco-off":"";return '<div class="g-linha grupo'+gd+'" style="height:34px"><span class="mini" style="background:'+esc(l.cor)+'"></span>'+esc(l.rot)+' ('+grupos.find(g=>g.rot===l.rot).itens.length+')</div>';}
     const a=l.acao;const m=membroPorId(a.membroId);const c=colunaPorId(a.status);
     const cor=m?m.cor:(c?c.cor:"#579bfc");
     const pe=progressoEfetivo(a);
-    return '<div class="g-linha" data-linha="'+a.id+'">'+avatarHTML(m)+'<span class="nome" data-abrir="'+a.id+'" title="'+esc(a.titulo)+'">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+esc(a.titulo)+'</span><span class="chip" style="background:'+esc(c?c.cor:"#ccc")+'22;color:'+esc(c?c.cor:"#666")+'">'+pe+'%</span></div>';
+    return '<div class="g-linha'+dimA(a)+'" data-linha="'+a.id+'">'+avatarHTML(m)+'<span class="nome" data-abrir="'+a.id+'" title="'+esc(a.titulo)+'">'+(a.parentId?'<span style="color:var(--muted)">↳ </span>':"")+esc(a.titulo)+'</span><span class="chip" style="background:'+esc(c?c.cor:"#ccc")+'22;color:'+esc(c?c.cor:"#666")+'">'+pe+'%</span></div>';
   }).join("");
 
   const barras=linhas.map((l,idx)=>{
@@ -898,7 +914,7 @@ function renderGantt(el){
       const x2=Math.max(x1+px,xDe(a.prazo||a.inicio)+(a.prazo?px:0));
       const w=Math.max(10,x2-x1);
       const lbl=a.titulo.length>Math.floor(w/7)?a.titulo.slice(0,Math.max(3,Math.floor(w/7)-1))+"…":a.titulo;
-      out+='<div class="g-barra" data-barra="'+a.id+'" style="left:'+x1+'px;width:'+w+'px;top:'+(topo+9)+'px;background:'+esc(cor)+'" title="'+esc(a.titulo+" · "+fmtBR(a.inicio||a.prazo)+" → "+fmtBR(a.prazo||a.inicio))+'">'+
+      out+='<div class="g-barra'+dimA(a)+'" data-barra="'+a.id+'" style="left:'+x1+'px;width:'+w+'px;top:'+(topo+9)+'px;background:'+esc(cor)+'" title="'+esc(a.titulo+" · "+fmtBR(a.inicio||a.prazo)+" → "+fmtBR(a.prazo||a.inicio))+'">'+
         (pe>0?'<span class="fill" style="width:'+Math.min(100,pe)+'%"></span>':'')+
         '<span class="ala i" data-ala="i"></span><span class="lbl">'+esc(lbl)+'</span><span class="ala e" data-ala="e"></span></div>';
     }
@@ -1267,7 +1283,7 @@ function atalhos(e){
   if(t&&t.matches&&t.matches("input,textarea,select")){if(e.key==="Escape")fecharModal();return;}
   if(e.key==="/"){e.preventDefault();$("#busca").focus();}
   else if(e.key==="n"||e.key==="N"){e.preventDefault();modalAcao(null);}
-  else if(e.key==="Escape")fecharModal();
+  else if(e.key==="Escape"){if($("#raizModal").innerHTML)fecharModal();else if(focoMembro){focoMembro="";render();}}
   else if(e.key>="1"&&e.key<="4"){const v=["tabela","kanban","calendario","gantt"][+e.key-1];if(v)irPara(v);}
 }
 function init(){
@@ -1287,6 +1303,14 @@ function init(){
   $("#filtroMembro").addEventListener("change",e=>{filtros.membro=e.target.value;render();});
   $("#filtroPrioridade").addEventListener("change",e=>{filtros.prioridade=e.target.value;render();});
   document.addEventListener("keydown",atalhos);
+  document.addEventListener("click",e=>{
+    const t=e.target.closest?e.target.closest("[data-foco]"):null;
+    if(!t)return;
+    e.stopPropagation();
+    const id=t.dataset.foco;
+    focoMembro=focoMembro===id?"":id;
+    render();
+  },true);
   if(!(estado.config&&estado.config.inicializado)&&!estado.acoes.length&&!estado.membros.length){
     modalTemplate();
   }else{
