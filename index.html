@@ -592,7 +592,7 @@ function renderTabela(el){
     ["titulo","Ação"],["membroId","Responsável"],["status","Status"],["prioridade","Prioridade"],
     ["inicio","Início"],["prazo","Prazo"],["progresso","Progresso"],[""," "]
   ];
-  const th=cols.map(([c,r])=>{
+  const th='<th class="chkcell" style="cursor:default"></th>'+cols.map(([c,r])=>{
     if(!c)return '<th style="width:70px">'+r+'</th>';
     const seta=ordemTabela.campo===c?(ordemTabela.dir===1?" ▲":" ▼"):"";
     return '<th data-ord="'+c+'">'+r+seta+'</th>';
