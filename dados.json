@@ -1,0 +1,1 @@
+{"versao":1,"membros":[],"colunas":[{"id":"c1","nome":"A Fazer","cor":"#c4c4c4","ordem":1},{"id":"c2","nome":"Em Andamento","cor":"#fdab3d","ordem":2},{"id":"c3","nome":"Concluído","cor":"#00c875","ordem":3},{"id":"c4","nome":"Bloqueado","cor":"#e44258","ordem":4}],"acoes":[],"config":{"visaoPadrao":"tabela"},"alteradoEm":0}
