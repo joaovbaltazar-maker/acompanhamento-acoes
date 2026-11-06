@@ -62,16 +62,19 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
   const hojeN = acoes.filter(a => a.prazo === hoje).length;
   const atrasN = acoes.length - hojeN;
 
-  const prioCor = { Critica: "#c62828", Alta: "#e65100", Media: "#1565c0", Baixa: "#2e7d32" };
-  const prioBg = { Critica: "#fce4e4", Alta: "#fff3e0", Media: "#e3f2fd", Baixa: "#e8f5e9" };
+  const prioCor = { Critica: "#dc2626", Alta: "#ea580c", Media: "#2563eb", Baixa: "#16a34a" };
+  const prioBg = { Critica: "#fef2f2", Alta: "#fff7ed", Media: "#eff6ff", Baixa: "#f0fdf4" };
+  const prioLabel = { Critica: "Crítica", Alta: "Alta", Media: "Média", Baixa: "Baixa" };
 
   const preheader = "Você tem " + acoes.length + " ação(ões): " + hojeN + " vencem hoje" +
     (atrasN ? ", " + atrasN + " atrasada(s)" : "") + " — " + fmtBR(hoje);
 
-  function metricCard(label, valor, cor, bg) {
-    return '<td style="width:33%;padding:0 4px"><div style="text-align:center;padding:14px 6px;background:' + bg + ';border-radius:8px">' +
-      '<div style="font-size:26px;font-weight:700;color:' + cor + ';line-height:1">' + valor + '</div>' +
-      '<div style="font-size:10px;color:#666;margin-top:4px;text-transform:uppercase;letter-spacing:.6px">' + esc(label) + '</div></div></td>';
+  function metricCard(label, valor, cor, bg, border) {
+    return '<td style="width:33%;padding:0 5px;vertical-align:top">' +
+      '<div style="text-align:center;padding:16px 8px;background:' + bg + ';border:1px solid ' + border + ';border-radius:10px">' +
+      '<div style="font-size:28px;font-weight:700;color:' + cor + ';line-height:1;margin-bottom:4px">' + valor + '</div>' +
+      '<div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:.8px;font-weight:600">' + esc(label) + '</div>' +
+      '</div></td>';
   }
 
   function actionCard(a) {
@@ -79,77 +82,94 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     const atrasada = d < 0;
     const diasAtraso = Math.abs(d);
     const rot = atrasada ? (diasAtraso === 1 ? "1 dia de atraso" : diasAtraso + " dias de atraso") : "Vence hoje";
-    const cor = atrasada ? "#c62828" : "#e65100";
-    const prio = ROT_PRIO[a.prioridade] || a.prioridade || "—";
-    const prioC = prioCor[a.prioridade] || "#555";
-    const prioB = prioBg[a.prioridade] || "#f0f0f0";
+    const accent = atrasada ? "#dc2626" : "#ea580c";
+    const prio = prioLabel[a.prioridade] || a.prioridade || "—";
+    const prioC = prioCor[a.prioridade] || "#6b7280";
+    const prioB = prioBg[a.prioridade] || "#f3f4f6";
     const st = (colunaPorId(a.status) || {}).nome || "—";
-    return '<tr><td style="padding:0 0 10px"><div style="border-left:4px solid ' + cor + ';background:#fafafa;border-radius:0 8px 8px 0;padding:12px 14px">' +
-      '<div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:6px;line-height:1.3">' + esc(a.titulo) + '</div>' +
-      '<div style="font-size:12px;color:#555">' +
-        '<span style="margin-right:8px">📅 ' + fmtBR(a.prazo) + '</span>' +
-        '<span style="background:' + prioB + ';color:' + prioC + ';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px">' + esc(prio) + '</span>' +
-        '<span style="background:#e8e8e8;color:#555;padding:2px 8px;border-radius:4px;font-size:11px">' + esc(st) + '</span>' +
-      '</div>' +
-      (atrasada ? '<div style="font-size:12px;color:#c62828;font-weight:600;margin-top:6px">⚠ ' + rot + '</div>' : '') +
-      '</div></td></tr>';
+    return '<tr><td style="padding:0 0 8px">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">' +
+      '<tr>' +
+        '<td style="width:4px;background:' + accent + ';padding:0;font-size:0;line-height:0">&nbsp;</td>' +
+        '<td style="padding:14px 16px;background:#ffffff">' +
+          '<div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px;line-height:1.4">' + esc(a.titulo) + '</div>' +
+          '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
+            '<td style="padding-right:12px;font-size:12px;color:#6b7280">📅 ' + fmtBR(a.prazo) + '</td>' +
+            '<td style="padding-right:6px"><span style="display:inline-block;background:' + prioB + ';color:' + prioC + ';padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">' + esc(prio) + '</span></td>' +
+            '<td><span style="display:inline-block;background:#f3f4f6;color:#4b5563;padding:3px 10px;border-radius:6px;font-size:11px">' + esc(st) + '</span></td>' +
+          '</tr></table>' +
+          (atrasada ? '<div style="font-size:12px;color:#dc2626;font-weight:600;margin-top:8px">⚠ ' + rot + '</div>' : '') +
+        '</td>' +
+      '</tr></table>' +
+      '</td></tr>';
   }
 
   const vencemHoje = acoes.filter(a => a.prazo === hoje);
   const atrasadas = acoes.filter(a => a.prazo !== hoje);
 
-  function section(titulo, cor, acoesSecao) {
+  function section(titulo, cor, bgHeader, acoesSecao) {
     if (!acoesSecao.length) return "";
-    return '<tr><td style="padding:18px 0 8px"><div style="font-size:12px;font-weight:700;color:' + cor +
-      ';text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid ' + cor +
-      ';padding-bottom:6px">' + esc(titulo) + ' (' + acoesSecao.length + ')</div></td></tr>' +
+    return '<tr><td style="padding:20px 0 10px">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+        '<td style="font-size:11px;font-weight:700;color:' + cor + ';text-transform:uppercase;letter-spacing:1px;padding-bottom:8px;border-bottom:2px solid ' + cor + '">' + esc(titulo) + ' (' + acoesSecao.length + ')</td>' +
+      '</tr></table>' +
+      '</td></tr>' +
       acoesSecao.map(actionCard).join("");
   }
 
   const html =
     '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
-    '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased">' +
-    '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f0f2f5">' + esc(preheader) + '</div>' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:24px 0"><tr><td align="center">' +
-    '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">' +
-    '<tr><td style="background:#0071e3;padding:24px 28px">' +
-      '<div style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-.3px">📋 Acompanhamento de Ações</div>' +
-      '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-top:4px">' + fmtBR(hoje) + '</div>' +
-    '</td></tr>' +
-    '<tr><td style="padding:24px 28px">' +
-      '<p style="font-size:15px;color:#1a1a1a;margin:0 0 18px;line-height:1.4">Olá <b>' + esc(nome) + '</b>, aqui está seu resumo do dia.</p>' +
-      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px"><tr>' +
-        metricCard("Total", acoes.length, "#1a1a1a", "#f0f0f0") +
-        '<td style="width:10px"></td>' +
-        metricCard("Vencem hoje", hojeN, "#e65100", "#fff3e0") +
-        '<td style="width:10px"></td>' +
-        metricCard("Atrasadas", atrasN, "#c62828", "#fce4e4") +
+    '<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased">' +
+    '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f3f4f6">' + esc(preheader) + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 0"><tr><td align="center" style="padding:0 16px">' +
+    '<table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e5e7eb">' +
+    // Header
+    '<tr><td style="background:#1e40af;padding:28px 32px">' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
+        '<td><div style="font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-.5px">Acompanhamento de Ações</div>' +
+        '<div style="font-size:13px;color:rgba(255,255,255,.8);margin-top:4px">' + fmtBR(hoje) + '</div></td>' +
+        '<td align="right" style="vertical-align:top"><div style="font-size:28px">📋</div></td>' +
       '</tr></table>' +
-      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
-        section("Vencem hoje", "#e65100", vencemHoje) +
-        section("Atrasadas", "#c62828", atrasadas) +
-      '</table>' +
-      (site ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td align="center">' +
-        '<a href="' + esc(site) + '" style="display:inline-block;background:#0071e3;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 2px 6px rgba(0,113,227,.35)">Abrir o acompanhamento →</a>' +
-        '</td></tr></table>' : '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td align="center" style="font-size:12px;color:#999">Configure o secret <b>SITE_URL</b> no GitHub para ativar o botão de acesso.</td></tr></table>') +
     '</td></tr>' +
-    '<tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #eee">' +
-      '<p style="font-size:11px;color:#999;margin:0;line-height:1.6">' +
+    // Body
+    '<tr><td style="padding:28px 32px">' +
+      '<p style="font-size:15px;color:#374151;margin:0 0 20px;line-height:1.5">Olá <b style="color:#111827">' + esc(nome) + '</b>, aqui está seu resumo do dia.</p>' +
+      // Metric cards
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px"><tr>' +
+        metricCard("Total", acoes.length, "#111827", "#f9fafb", "#e5e7eb") +
+        metricCard("Vencem hoje", hojeN, "#ea580c", "#fff7ed", "#fed7aa") +
+        metricCard("Atrasadas", atrasN, "#dc2626", "#fef2f2", "#fecaca") +
+      '</tr></table>' +
+      // Sections
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+        section("Vencem hoje", "#ea580c", null, vencemHoje) +
+        section("Atrasadas", "#dc2626", null, atrasadas) +
+      '</table>' +
+      // CTA
+      (site ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px"><tr><td align="center">' +
+        '<a href="' + esc(site) + '" style="display:inline-block;background:#1e40af;color:#ffffff;padding:14px 36px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">Abrir o acompanhamento →</a>' +
+        '</td></tr></table>' : '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px"><tr><td align="center" style="font-size:12px;color:#9ca3af">Configure o secret <b>SITE_URL</b> no GitHub para ativar o botão de acesso.</td></tr></table>') +
+    '</td></tr>' +
+    // Footer
+    '<tr><td style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb">' +
+      '<p style="font-size:12px;color:#9ca3af;margin:0;line-height:1.6">' +
         'Gerado automaticamente em ' + fmtBR(hoje) + '.<br>' +
-        'Para deixar de receber, remova seu email em <b>Membros do time</b>.' +
+        'Para deixar de receber, remova seu email em <b style="color:#6b7280">Membros do time</b>.' +
       '</p>' +
     '</td></tr>' +
-    '</table></td></tr></table></body></html>';
+    '</table>' +
+    '<p style="font-size:11px;color:#9ca3af;margin:16px 0 0;text-align:center">Acompanhamento de Ações · Rumo</p>' +
+    '</td></tr></table></body></html>';
 
   const texto =
     "Acompanhamento de ações — " + fmtBR(hoje) + "\n\n" +
     "Olá " + nome + ", aqui está seu resumo do dia.\n\n" +
     "Total: " + acoes.length + " | Vencem hoje: " + hojeN + " | Atrasadas: " + atrasN + "\n\n" +
     (vencemHoje.length ? "=== VENCEM HOJE ===\n" + vencemHoje.map(a =>
-      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " | " + (ROT_PRIO[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
+      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " | " + (prioLabel[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
     ).join("\n") + "\n\n" : "") +
     (atrasadas.length ? "=== ATRASADAS ===\n" + atrasadas.map(a =>
-      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " (" + Math.abs(difDias(a.prazo, hoje)) + " dias) | " + (ROT_PRIO[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
+      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " (" + Math.abs(difDias(a.prazo, hoje)) + " dias) | " + (prioLabel[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
     ).join("\n") + "\n\n" : "") +
     (site ? "Abrir: " + site + "\n" : "") +
     "\nEmail automático do Acompanhamento de Ações.";
@@ -163,6 +183,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
 
   return { html, texto, assunto };
 }
+
 
 
 (async () => {
