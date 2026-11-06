@@ -76,6 +76,7 @@ Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `d
 |---|---|
 | `RESEND_API_KEY` | chave da API criada em [resend.com](https://resend.com) (API Keys) |
 | `EMAIL_FROM` | remetente, ex.: `Acompanhamento <avisos@suedominio.com>` — exige domínio verificado no Resend |
+| `EMAIL_ADMIN` | (opcional) seu email — recebe também as ações cujo responsável **não tem email** cadastrado (fallback) |
 | `SITE_URL` | (opcional) endereço do site, usado no botão do email |
 
 **3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).

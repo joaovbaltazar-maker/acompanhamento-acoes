@@ -59,7 +59,7 @@ function emAviso(a, hoje, concluida) {
   return true;
 }
 
-function montarEmail(nome, acoes, hoje, site, colunaPorId) {
+function montarEmail(nome, acoes, hoje, site, colunaPorId, nota) {
   const item = a => {
     const d = difDias(a.prazo, hoje);
     const rot = d < 0 ? "atrasada" : "vence hoje";
@@ -79,6 +79,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     (hojeN ? ' · <b>' + hojeN + '</b> vencem hoje' : '') +
     (atrasN ? ' · <b style="color:#c62828">' + atrasN + '</b> atrasada(s)' : '') +
     ':</p>' +
+    (nota ? '<p style="font-size:13px;background:#fff7e6;border:1px solid #ffd591;padding:8px 12px;border-radius:8px">' + esc(nota) + '</p>' : "") +
     '<ul style="padding-left:18px;font-size:14px">' + acoes.map(item).join("") + '</ul>' +
     (site ? '<p style="margin:16px 0"><a href="' + esc(site) + '" style="background:#0071e3;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-size:14px">Abrir o acompanhamento</a></p>' : "") +
     '<p style="font-size:12px;color:#888">Email automático do Acompanhamento de Ações.</p></div>';
@@ -114,6 +115,7 @@ async function enviarPara(email, key, from, assunto, html, texto) {
     const from = process.env.EMAIL_FROM;
     if (!key || !from) throw new Error("Defina os secrets RESEND_API_KEY e EMAIL_FROM no repositório");
     const site = (process.env.SITE_URL || "").trim();
+    const admin = (process.env.EMAIL_ADMIN || "").trim().toLowerCase();
 
     const estado = carregarDados();
     const { colunaPorId, concluida } = criarHelpers(estado);
@@ -121,35 +123,46 @@ async function enviarPara(email, key, from, assunto, html, texto) {
 
     const avisaveis = estado.acoes.filter(a => emAviso(a, hoje, concluida));
     const porEmail = new Map();
+    const orfas = [];
     let semEmail = 0;
     for (const a of avisaveis) {
       const m = estado.membros.find(x => x.id === a.membroId);
       const email = ((m && m.email) || "").trim().toLowerCase();
-      if (!email) { semEmail++; continue; }
+      if (!email) { semEmail++; orfas.push(a); continue; }
       if (!porEmail.has(email)) porEmail.set(email, { nome: m.nome, acoes: [] });
       porEmail.get(email).acoes.push(a);
     }
 
-    if (!porEmail.size) {
+    const enviarAdmin = !!(admin && orfas.length);
+    if (!porEmail.size && !enviarAdmin) {
       console.log("Nada a enviar: " + avisaveis.length + " ação(ões) no radar, " + semEmail + " sem email do responsável.");
       return;
     }
 
     let enviados = 0;
     const erros = [];
-    for (const [email, info] of porEmail) {
-      info.acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
-      const { html, texto, assunto } = montarEmail(info.nome, info.acoes, hoje, site, colunaPorId);
+    const fila = [];
+    for (const [email, info] of porEmail) fila.push({ email, nome: info.nome, acoes: info.acoes, nota: "" });
+    if (enviarAdmin) {
+      orfas.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
+      fila.push({
+        email: admin, nome: "responsável não informado", acoes: orfas,
+        nota: semEmail + " ação(ões) abaixo não têm responsável com email cadastrado — este resumo foi enviado a você como fallback (secret EMAIL_ADMIN).",
+      });
+    }
+    for (const item of fila) {
+      item.acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
+      const { html, texto, assunto } = montarEmail(item.nome, item.acoes, hoje, site, colunaPorId, item.nota);
       try {
-        await enviarPara(email, key, from, assunto, html, texto);
+        await enviarPara(item.email, key, from, assunto, html, texto);
         enviados++;
-        console.log("OK  " + email + " (" + info.acoes.length + " ação(ões))");
+        console.log("OK  " + item.email + " (" + item.acoes.length + " ação(ões))");
       } catch (e) {
-        erros.push(email + ": " + e.message);
-        console.error("ERRO " + email + ": " + e.message);
+        erros.push(item.email + ": " + e.message);
+        console.error("ERRO " + item.email + ": " + e.message);
       }
     }
-    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, erros: erros.length }));
+    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, fallbackAdmin: enviarAdmin, erros: erros.length }));
     if (erros.length) process.exitCode = 1;
   } catch (e) {
     console.error(e && e.message ? e.message : e);

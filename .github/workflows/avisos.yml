@@ -9,13 +9,14 @@ jobs:
   enviar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 24
       - name: Enviar avisos por email
         run: node scripts/avisos.js
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}
           SITE_URL: ${{ secrets.SITE_URL }}
