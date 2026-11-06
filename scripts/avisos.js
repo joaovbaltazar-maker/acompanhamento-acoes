@@ -59,41 +59,111 @@ function emAviso(a, hoje, concluida) {
 }
 
 function montarEmail(nome, acoes, hoje, site, colunaPorId) {
-  const item = a => {
-    const d = difDias(a.prazo, hoje);
-    const rot = d < 0 ? "atrasada" : "vence hoje";
-    const cor = d < 0 ? "#c62828" : "#e65100";
-    const prio = ROT_PRIO[a.prioridade] || a.prioridade || "—";
-    const st = (colunaPorId(a.status) || {}).nome || "—";
-    return '<li style="margin:0 0 8px"><b>' + esc(a.titulo) + '</b><br>' +
-      '<span style="color:' + cor + ';font-size:13px">Prazo: ' + fmtBR(a.prazo) + ' (' + rot + ')</span>' +
-      ' <span style="font-size:12px;color:#666">· ' + esc(prio) + ' · ' + esc(st) + '</span></li>';
-  };
   const hojeN = acoes.filter(a => a.prazo === hoje).length;
   const atrasN = acoes.length - hojeN;
+
+  const prioCor = { Critica: "#c62828", Alta: "#e65100", Media: "#1565c0", Baixa: "#2e7d32" };
+  const prioBg = { Critica: "#fce4e4", Alta: "#fff3e0", Media: "#e3f2fd", Baixa: "#e8f5e9" };
+
+  const preheader = "Você tem " + acoes.length + " ação(ões): " + hojeN + " vencem hoje" +
+    (atrasN ? ", " + atrasN + " atrasada(s)" : "") + " — " + fmtBR(hoje);
+
+  function metricCard(label, valor, cor, bg) {
+    return '<td style="text-align:center;padding:12px 6px;background:' + bg + ';border-radius:8px">' +
+      '<div style="font-size:26px;font-weight:700;color:' + cor + ';line-height:1">' + valor + '</div>' +
+      '<div style="font-size:10px;color:#666;margin-top:4px;text-transform:uppercase;letter-spacing:.6px">' + esc(label) + '</div></td>';
+  }
+
+  function actionCard(a) {
+    const d = difDias(a.prazo, hoje);
+    const atrasada = d < 0;
+    const diasAtraso = Math.abs(d);
+    const rot = atrasada ? (diasAtraso === 1 ? "1 dia de atraso" : diasAtraso + " dias de atraso") : "Vence hoje";
+    const cor = atrasada ? "#c62828" : "#e65100";
+    const prio = ROT_PRIO[a.prioridade] || a.prioridade || "—";
+    const prioC = prioCor[a.prioridade] || "#555";
+    const prioB = prioBg[a.prioridade] || "#f0f0f0";
+    const st = (colunaPorId(a.status) || {}).nome || "—";
+    return '<tr><td style="padding:0 0 10px"><div style="border-left:4px solid ' + cor + ';background:#fafafa;border-radius:0 8px 8px 0;padding:12px 14px">' +
+      '<div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:6px;line-height:1.3">' + esc(a.titulo) + '</div>' +
+      '<div style="font-size:12px;color:#555">' +
+        '<span>📅 ' + fmtBR(a.prazo) + '</span>' +
+        ' <span style="background:' + prioB + ';color:' + prioC + ';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px">' + esc(prio) + '</span>' +
+        ' <span style="background:#e8e8e8;color:#555;padding:2px 8px;border-radius:4px;font-size:11px;margin-left:4px">' + esc(st) + '</span>' +
+      '</div>' +
+      (atrasada ? '<div style="font-size:12px;color:#c62828;font-weight:600;margin-top:6px">⚠ ' + rot + '</div>' : '') +
+      '</div></td></tr>';
+  }
+
+  const vencemHoje = acoes.filter(a => a.prazo === hoje);
+  const atrasadas = acoes.filter(a => a.prazo !== hoje);
+
+  function section(titulo, cor, acoesSecao) {
+    if (!acoesSecao.length) return "";
+    return '<tr><td style="padding:18px 0 8px"><div style="font-size:12px;font-weight:700;color:' + cor +
+      ';text-transform:uppercase;letter-spacing:.6px;border-bottom:2px solid ' + cor +
+      ';padding-bottom:6px">' + esc(titulo) + ' (' + acoesSecao.length + ')</div></td></tr>' +
+      acoesSecao.map(actionCard).join("");
+  }
+
   const html =
-    '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#1a1a1a">' +
-    '<h2 style="font-size:18px;margin:0 0 8px">📋 Acompanhamento de ações</h2>' +
-    '<p style="font-size:14px">Olá ' + esc(nome) + ', você tem <b>' + acoes.length + ' ação(ões)</b>' +
-    (hojeN ? ' · <b>' + hojeN + '</b> vencem hoje' : '') +
-    (atrasN ? ' · <b style="color:#c62828">' + atrasN + '</b> atrasada(s)' : '') +
-    ':</p>' +
-    '<ul style="padding-left:18px;font-size:14px">' + acoes.map(item).join("") + '</ul>' +
-    (site ? '<p style="margin:16px 0"><a href="' + esc(site) + '" style="background:#0071e3;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-size:14px">Abrir o acompanhamento</a></p>' : "") +
-    '<p style="font-size:12px;color:#888">Email automático do Acompanhamento de Ações.</p></div>';
+    '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>' +
+    '<body style="margin:0;padding:0;background:#f0f2f5;font-family:Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased">' +
+    '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f0f2f5">' + esc(preheader) + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:24px 0"><tr><td align="center">' +
+    '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">' +
+    '<tr><td style="background:linear-gradient(135deg,#0071e3,#005bb5);padding:24px 28px">' +
+      '<div style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-.3px">📋 Acompanhamento de Ações</div>' +
+      '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-top:4px">' + fmtBR(hoje) + '</div>' +
+    '</td></tr>' +
+    '<tr><td style="padding:24px 28px">' +
+      '<p style="font-size:15px;color:#1a1a1a;margin:0 0 18px;line-height:1.4">Olá <b>' + esc(nome) + '</b>, aqui está seu resumo do dia.</p>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:22px"><tr>' +
+        metricCard("Total", acoes.length, "#1a1a1a", "#f0f0f0") +
+        '<td style="width:10px"></td>' +
+        metricCard("Vencem hoje", hojeN, "#e65100", "#fff3e0") +
+        '<td style="width:10px"></td>' +
+        metricCard("Atrasadas", atrasN, "#c62828", "#fce4e4") +
+      '</tr></table>' +
+      '<table role="presentation" width="100%" cellpadding="0" cellspacing="0">' +
+        section("Vencem hoje", "#e65100", vencemHoje) +
+        section("Atrasadas", "#c62828", atrasadas) +
+      '</table>' +
+      (site ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td align="center">' +
+        '<a href="' + esc(site) + '" style="display:inline-block;background:#0071e3;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 2px 6px rgba(0,113,227,.35)">Abrir o acompanhamento →</a>' +
+        '</td></tr></table>' : "") +
+    '</td></tr>' +
+    '<tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #eee">' +
+      '<p style="font-size:11px;color:#999;margin:0;line-height:1.6">' +
+        'Gerado automaticamente em ' + fmtBR(hoje) + '.<br>' +
+        'Para deixar de receber, remova seu email em <b>Membros do time</b>.' +
+      '</p>' +
+    '</td></tr>' +
+    '</table></td></tr></table></body></html>';
+
   const texto =
     "Acompanhamento de ações — " + fmtBR(hoje) + "\n\n" +
-    "Olá " + nome + ", você tem " + acoes.length + " ação(ões):\n\n" +
-    acoes.map(a => "- " + a.titulo + " | prazo " + fmtBR(a.prazo) +
-      (difDias(a.prazo, hoje) < 0 ? " (atrasada)" : " (vence hoje)")).join("\n") +
-    (site ? "\n\nAbrir: " + site : "");
-  const assunto = "Acompanhamento: " + acoes.length + " ação(ões) — " +
+    "Olá " + nome + ", aqui está seu resumo do dia.\n\n" +
+    "Total: " + acoes.length + " | Vencem hoje: " + hojeN + " | Atrasadas: " + atrasN + "\n\n" +
+    (vencemHoje.length ? "=== VENCEM HOJE ===\n" + vencemHoje.map(a =>
+      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " | " + (ROT_PRIO[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
+    ).join("\n") + "\n\n" : "") +
+    (atrasadas.length ? "=== ATRASADAS ===\n" + atrasadas.map(a =>
+      "- " + a.titulo + " | prazo " + fmtBR(a.prazo) + " (" + Math.abs(difDias(a.prazo, hoje)) + " dias) | " + (ROT_PRIO[a.prioridade] || a.prioridade) + " | " + ((colunaPorId(a.status) || {}).nome || "—")
+    ).join("\n") + "\n\n" : "") +
+    (site ? "Abrir: " + site + "\n" : "") +
+    "\nEmail automático do Acompanhamento de Ações.";
+
+  const emoji = atrasN > 0 ? "⚠️ " : "📋 ";
+  const assunto = emoji + "Acompanhamento: " + acoes.length + " ação(ões) — " +
     (hojeN ? hojeN + " vencem hoje" : "") +
     (hojeN && atrasN ? ", " : "") +
     (atrasN ? atrasN + " atrasada(s)" : "") +
     " (" + fmtBR(hoje) + ")";
+
   return { html, texto, assunto };
 }
+
 
 (async () => {
   try {
