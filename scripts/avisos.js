@@ -69,9 +69,9 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     (atrasN ? ", " + atrasN + " atrasada(s)" : "") + " — " + fmtBR(hoje);
 
   function metricCard(label, valor, cor, bg) {
-    return '<td style="text-align:center;padding:12px 6px;background:' + bg + ';border-radius:8px">' +
+    return '<td style="width:33%;padding:0 4px"><div style="text-align:center;padding:14px 6px;background:' + bg + ';border-radius:8px">' +
       '<div style="font-size:26px;font-weight:700;color:' + cor + ';line-height:1">' + valor + '</div>' +
-      '<div style="font-size:10px;color:#666;margin-top:4px;text-transform:uppercase;letter-spacing:.6px">' + esc(label) + '</div></td>';
+      '<div style="font-size:10px;color:#666;margin-top:4px;text-transform:uppercase;letter-spacing:.6px">' + esc(label) + '</div></div></td>';
   }
 
   function actionCard(a) {
@@ -87,9 +87,9 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     return '<tr><td style="padding:0 0 10px"><div style="border-left:4px solid ' + cor + ';background:#fafafa;border-radius:0 8px 8px 0;padding:12px 14px">' +
       '<div style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:6px;line-height:1.3">' + esc(a.titulo) + '</div>' +
       '<div style="font-size:12px;color:#555">' +
-        '<span>📅 ' + fmtBR(a.prazo) + '</span>' +
-        ' <span style="background:' + prioB + ';color:' + prioC + ';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px">' + esc(prio) + '</span>' +
-        ' <span style="background:#e8e8e8;color:#555;padding:2px 8px;border-radius:4px;font-size:11px;margin-left:4px">' + esc(st) + '</span>' +
+        '<span style="margin-right:8px">📅 ' + fmtBR(a.prazo) + '</span>' +
+        '<span style="background:' + prioB + ';color:' + prioC + ';padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-right:4px">' + esc(prio) + '</span>' +
+        '<span style="background:#e8e8e8;color:#555;padding:2px 8px;border-radius:4px;font-size:11px">' + esc(st) + '</span>' +
       '</div>' +
       (atrasada ? '<div style="font-size:12px;color:#c62828;font-weight:600;margin-top:6px">⚠ ' + rot + '</div>' : '') +
       '</div></td></tr>';
@@ -112,7 +112,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f0f2f5">' + esc(preheader) + '</div>' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f2f5;padding:24px 0"><tr><td align="center">' +
     '<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">' +
-    '<tr><td style="background:linear-gradient(135deg,#0071e3,#005bb5);padding:24px 28px">' +
+    '<tr><td style="background:#0071e3;padding:24px 28px">' +
       '<div style="font-size:20px;font-weight:700;color:#fff;letter-spacing:-.3px">📋 Acompanhamento de Ações</div>' +
       '<div style="font-size:13px;color:rgba(255,255,255,.85);margin-top:4px">' + fmtBR(hoje) + '</div>' +
     '</td></tr>' +
