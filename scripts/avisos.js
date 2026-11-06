@@ -116,53 +116,99 @@ async function enviarPara(email, key, from, assunto, html, texto) {
     if (!key || !from) throw new Error("Defina os secrets RESEND_API_KEY e EMAIL_FROM no repositório");
     const site = (process.env.SITE_URL || "").trim();
     const admin = (process.env.EMAIL_ADMIN || "").trim().toLowerCase();
+    const consolidado = !!admin;
 
     const estado = carregarDados();
     const { colunaPorId, concluida } = criarHelpers(estado);
     const hoje = hojeSP();
 
     const avisaveis = estado.acoes.filter(a => emAviso(a, hoje, concluida));
-    const porEmail = new Map();
-    const orfas = [];
-    let semEmail = 0;
-    for (const a of avisaveis) {
-      const m = estado.membros.find(x => x.id === a.membroId);
-      const email = ((m && m.email) || "").trim().toLowerCase();
-      if (!email) { semEmail++; orfas.push(a); continue; }
-      if (!porEmail.has(email)) porEmail.set(email, { nome: m.nome, acoes: [] });
-      porEmail.get(email).acoes.push(a);
-    }
-
-    const enviarAdmin = !!(admin && orfas.length);
-    if (!porEmail.size && !enviarAdmin) {
-      console.log("Nada a enviar: " + avisaveis.length + " ação(ões) no radar, " + semEmail + " sem email do responsável.");
-      return;
-    }
 
     let enviados = 0;
     const erros = [];
-    const fila = [];
-    for (const [email, info] of porEmail) fila.push({ email, nome: info.nome, acoes: info.acoes, nota: "" });
-    if (enviarAdmin) {
-      orfas.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
-      fila.push({
-        email: admin, nome: "responsável não informado", acoes: orfas,
-        nota: semEmail + " ação(ões) abaixo não têm responsável com email cadastrado — este resumo foi enviado a você como fallback (secret EMAIL_ADMIN).",
-      });
-    }
-    for (const item of fila) {
-      item.acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
-      const { html, texto, assunto } = montarEmail(item.nome, item.acoes, hoje, site, colunaPorId, item.nota);
+    let semEmail = 0;
+
+    if (consolidado) {
+      // Modo consolidado: 1 email para o admin com todas as ações agrupadas por responsável.
+      // Funciona com onboarding@resend.dev (sem verificação de domínio).
+      const grupos = new Map();
+      for (const a of avisaveis) {
+        const m = estado.membros.find(x => x.id === a.membroId);
+        const nome = m ? m.nome : "(sem responsável)";
+        if (!grupos.has(nome)) grupos.set(nome, []);
+        grupos.get(nome).push(a);
+      }
+      const linhas = [];
+      for (const [nome, acoes] of grupos) {
+        acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
+        linhas.push('<h3 style="font-size:15px;margin:14px 0 6px;color:#0071e3">' + esc(nome) + ' (' + acoes.length + ')</h3><ul style="padding-left:18px;font-size:14px;margin:0">' +
+          acoes.map(a => {
+            const d = difDias(a.prazo, hoje);
+            const rot = d < 0 ? "atrasada" : "vence hoje";
+            const cor = d < 0 ? "#c62828" : "#e65100";
+            const prio = ROT_PRIO[a.prioridade] || a.prioridade || "—";
+            const st = (colunaPorId(a.status) || {}).nome || "—";
+            return '<li style="margin:0 0 8px"><b>' + esc(a.titulo) + '</b><br>' +
+              '<span style="color:' + cor + ';font-size:13px">Prazo: ' + fmtBR(a.prazo) + ' (' + rot + ')</span>' +
+              ' <span style="font-size:12px;color:#666">· ' + esc(prio) + ' · ' + esc(st) + '</span></li>';
+          }).join("") + '</ul>');
+      }
+      const total = avisaveis.length;
+      const atrasN = avisaveis.filter(a => difDias(a.prazo, hoje) < 0).length;
+      const hojeN = total - atrasN;
+      const html = '<div style="font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#1a1a1a">' +
+        '<h2 style="font-size:18px;margin:0 0 8px">📋 Acompanhamento de ações</h2>' +
+        '<p style="font-size:14px">Resumo do dia <b>' + fmtBR(hoje) + '</b>: <b>' + total + ' ação(ões)</b>' +
+        (hojeN ? ' · <b>' + hojeN + '</b> vencem hoje' : '') +
+        (atrasN ? ' · <b style="color:#c62828">' + atrasN + '</b> atrasada(s)' : '') +
+        '</p>' + linhas.join("") +
+        (site ? '<p style="margin:16px 0"><a href="' + esc(site) + '" style="background:#0071e3;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;font-size:14px">Abrir o acompanhamento</a></p>' : "") +
+        '<p style="font-size:12px;color:#888">Email automático do Acompanhamento de Ações.</p></div>';
+      const texto = "Acompanhamento de ações — " + fmtBR(hoje) + "\n\nTotal: " + total + " ação(ões)\n\n" +
+        Array.from(grupos).map(([nome, acoes]) => nome + ":\n" + acoes.map(a => "  - " + a.titulo + " | prazo " + fmtBR(a.prazo) + (difDias(a.prazo, hoje) < 0 ? " (atrasada)" : " (vence hoje)")).join("\n")).join("\n\n") +
+        (site ? "\n\nAbrir: " + site : "");
+      const assunto = "Acompanhamento: " + total + " ação(ões) — " +
+        (hojeN ? hojeN + " vencem hoje" : "") +
+        (hojeN && atrasN ? ", " : "") +
+        (atrasN ? atrasN + " atrasada(s)" : "") +
+        " (" + fmtBR(hoje) + ")";
       try {
-        await enviarPara(item.email, key, from, assunto, html, texto);
-        enviados++;
-        console.log("OK  " + item.email + " (" + item.acoes.length + " ação(ões))");
+        await enviarPara(admin, key, from, assunto, html, texto);
+        enviados = 1;
+        console.log("OK  " + admin + " (" + total + " ação(ões) consolidadas)");
       } catch (e) {
-        erros.push(item.email + ": " + e.message);
-        console.error("ERRO " + item.email + ": " + e.message);
+        erros.push(admin + ": " + e.message);
+        console.error("ERRO " + admin + ": " + e.message);
+      }
+    } else {
+      // Modo per-responsável (requer domínio verificado no Resend)
+      const porEmail = new Map();
+      for (const a of avisaveis) {
+        const m = estado.membros.find(x => x.id === a.membroId);
+        const email = ((m && m.email) || "").trim().toLowerCase();
+        if (!email) { semEmail++; continue; }
+        if (!porEmail.has(email)) porEmail.set(email, { nome: m.nome, acoes: [] });
+        porEmail.get(email).acoes.push(a);
+      }
+      if (!porEmail.size) {
+        console.log("Nada a enviar: " + avisaveis.length + " ação(ões) no radar, " + semEmail + " sem email do responsável. Defina EMAIL_ADMIN para receber um resumo consolidado.");
+        return;
+      }
+      for (const [email, info] of porEmail) {
+        info.acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
+        const { html, texto, assunto } = montarEmail(info.nome, info.acoes, hoje, site, colunaPorId, "");
+        try {
+          await enviarPara(email, key, from, assunto, html, texto);
+          enviados++;
+          console.log("OK  " + email + " (" + info.acoes.length + " ação(ões))");
+        } catch (e) {
+          erros.push(email + ": " + e.message);
+          console.error("ERRO " + email + ": " + e.message);
+        }
       }
     }
-    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, fallbackAdmin: enviarAdmin, erros: erros.length }));
+
+    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, consolidado, erros: erros.length }));
     if (erros.length) process.exitCode = 1;
   } catch (e) {
     console.error(e && e.message ? e.message : e);

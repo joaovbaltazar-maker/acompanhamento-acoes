@@ -81,7 +81,7 @@ Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `d
 
 **3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).
 
-**Agenda:** `0 11 * * *` em UTC = 8h de Brasília, definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
+**Como funciona:** se o secret `EMAIL_ADMIN` estiver definido, o script envia **um único email consolidado** para esse endereço com todas as ações agrupadas por responsável — funciona com `onboarding@resend.dev` (modo teste do Resend, sem verificação de domínio). Se `EMAIL_ADMIN` não estiver definido, envia um email por responsável (requer domínio verificado no Resend para múltiplos destinatários).
 
 > ⚠️ O GitHub **desativa cron automaticamente após 60 dias sem commits** no repositório — como o app gera commits a cada edição, na prática isso não costuma acontecer; se acontecer, reative em Actions → *Enable workflow*.
 
