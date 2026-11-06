@@ -74,14 +74,22 @@ Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `d
 
 | Secret | Valor |
 |---|---|
-| `RESEND_API_KEY` | chave da API criada em [resend.com](https://resend.com) (API Keys) |
-| `EMAIL_FROM` | remetente, ex.: `Acompanhamento <avisos@suedominio.com>` — exige domínio verificado no Resend |
-| `EMAIL_ADMIN` | (opcional) seu email — recebe também as ações cujo responsável **não tem email** cadastrado (fallback) |
+| `GMAIL_USER` | seu email do Gmail (ex.: `joaovbaltazar@gmail.com`) |
+| `GMAIL_APP_PASSWORD` | senha de app do Gmail (16 caracteres) — veja abaixo como gerar |
 | `SITE_URL` | (opcional) endereço do site, usado no botão do email |
+
+**Como gerar a senha de app do Gmail:**
+1. Acesse [myaccount.google.com](https://myaccount.google.com) → **Segurança**
+2. Ative a **Verificação em duas etapas** (se ainda não estiver)
+3. Volte em **Segurança** → procure **Senhas de app** (ou acesse [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords))
+4. Selecione **Email** e **Outro (nome personalizado)** → digite "Acompanhamento" → **Gerar**
+5. Copie a senha de 16 caracteres (sem espaços) e cole no secret `GMAIL_APP_PASSWORD`
 
 **3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).
 
-**Como funciona:** se o secret `EMAIL_ADMIN` estiver definido, o script envia **um único email consolidado** para esse endereço com todas as ações agrupadas por responsável — funciona com `onboarding@resend.dev` (modo teste do Resend, sem verificação de domínio). Se `EMAIL_ADMIN` não estiver definido, envia um email por responsável (requer domínio verificado no Resend para múltiplos destinatários).
+**Agenda:** `0 11 * * *` em UTC = 8h de Brasília, definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
+
+**Como funciona:** cada membro com email cadastrado recebe **um email individual** com suas ações que vencem hoje ou já estão atrasadas. Sem verificação de domínio, sem custo, sem envolver a TI. Limite do Gmail: 500 emails/dia (mais que suficiente para equipes pequenas).
 
 > ⚠️ O GitHub **desativa cron automaticamente após 60 dias sem commits** no repositório — como o app gera commits a cada edição, na prática isso não costuma acontecer; se acontecer, reative em Actions → *Enable workflow*.
 
