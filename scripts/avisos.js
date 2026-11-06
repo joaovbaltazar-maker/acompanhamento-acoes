@@ -82,7 +82,6 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     const atrasada = d < 0;
     const diasAtraso = Math.abs(d);
     const rot = atrasada ? (diasAtraso === 1 ? "1 dia de atraso" : diasAtraso + " dias de atraso") : "Vence hoje";
-    const accent = atrasada ? "#dc2626" : "#ea580c";
     const prio = prioLabel[a.prioridade] || a.prioridade || "—";
     const prioC = prioCor[a.prioridade] || "#6b7280";
     const prioB = prioBg[a.prioridade] || "#f3f4f6";
@@ -90,7 +89,6 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     return '<tr><td style="padding:0 0 8px">' +
       '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">' +
       '<tr>' +
-        '<td style="width:4px;background:' + accent + ';padding:0;font-size:0;line-height:0">&nbsp;</td>' +
         '<td style="padding:14px 16px;background:#ffffff">' +
           '<div style="font-size:14px;font-weight:600;color:#111827;margin-bottom:8px;line-height:1.4">' + esc(a.titulo) + '</div>' +
           '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
