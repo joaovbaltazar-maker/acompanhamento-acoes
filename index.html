@@ -270,6 +270,7 @@ let estado = null;
 let cfg = {token:"",usuario:"",repo:"",caminho:"dados.json"};
 let visaoAtual = "tabela";
 let filtros = {busca:"",membro:"",prioridade:"",prazo:""};
+let ocultarConcluidosTabela = false;
 let ordemTabela = {campo:"prazo",dir:1};
 let selecao = new Set();
 let recolhidos = new Set();
@@ -297,6 +298,7 @@ function fmtCurto(s){const d=parseD(s);if(!d)return"";return String(d.getDate())
 function mesNome(m){return ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"][m];}
 function agora(){return Date.now();}
 function atrasada(a){if(!a.prazo)return false;if(progressoEfetivo(a)>=100)return false;const col=colunaPorId(a.status);if(col&&/conclu/i.test(col.nome))return false;return difDias(a.prazo,dISO(hoje()))<0;}
+function concluida(a){if(progressoEfetivo(a)>=100)return true;const col=colunaPorId(a.status);return !!(col&&/conclu/i.test(col.nome));}
 function venceEm(a,n){if(!a.prazo)return false;const d=difDias(a.prazo,dISO(hoje()));return d>=0&&d<=n;}
 function filhosDe(id){return estado.acoes.filter(x=>x.parentId===id);}
 function progressoEfetivo(a,vis){
@@ -611,7 +613,17 @@ function achatarTabela(lista){
 }
 
 function renderTabela(el){
-  const lista=ordenar(filtradas(),ordemTabela.campo,ordemTabela.dir);
+  const base=filtradas();
+  const ocultos=new Set();
+  const marcarOcultos=(id,paiOculto)=>{
+    const a=estado.acoes.find(x=>x.id===id);
+    if(!a||ocultos.has(id))return;
+    const oc=!!paiOculto||concluida(a);
+    if(oc)ocultos.add(id);
+    estado.acoes.filter(x=>x.parentId===id).forEach(f=>marcarOcultos(f.id,oc));
+  };
+  estado.acoes.filter(a=>!a.parentId||!estado.acoes.some(x=>x.id===a.parentId)).forEach(a=>marcarOcultos(a.id,false));
+  const lista=ordenar(base.filter(a=>!ocultarConcluidosTabela||!ocultos.has(a.id)),ordemTabela.campo,ordemTabela.dir);
   const cols=[
     ["titulo","Ação"],["membroId","Responsável"],["status","Status"],["prioridade","Prioridade"],
     ["inicio","Início"],["prazo","Prazo"],["progresso","Progresso"],[""," "]
@@ -649,9 +661,10 @@ function renderTabela(el){
     '<button class="btn btn-sm" id="loteLimpar">Limpar seleção</button></div>':"";
   el.innerHTML=
    '<div class="view-titulo"><h1>📋 Tabela</h1><span class="sub">'+lista.length+' ação(ões) · clique no título para editar · clique nos cabeçalhos para ordenar</span>'+
-   '<span class="spacer" style="flex:1"></span>'+
-   '<button class="btn btn-sm" id="btnCsv">⬇ Exportar CSV</button>'+
-   '<button class="btn btn-sm" id="btnImpCsv">⬆ Importar CSV</button></div>'+
+    '<span class="spacer" style="flex:1"></span>'+
+    '<button class="btn btn-sm'+(ocultarConcluidosTabela?" btn-primary":"")+'" id="btnToggleConcluidos">'+(ocultarConcluidosTabela?"👁 Mostrar concluídos":"🙈 Ocultar concluídos")+'</button>'+
+    '<button class="btn btn-sm" id="btnCsv">⬇ Exportar CSV</button>'+
+    '<button class="btn btn-sm" id="btnImpCsv">⬆ Importar CSV</button></div>'+
    '<div class="tabela-wrap">'+lote+
    '<table class="grid"><thead><tr>'+th+'</tr></thead><tbody>'+
    (rows||'<tr><td colspan="9"><div class="vazio"><div class="big">🔍</div><h3>Nenhuma ação encontrada</h3><p>Ajuste os filtros ou clique em “Nova ação”.</p></div></td></tr>')+
@@ -687,8 +700,10 @@ function renderTabela(el){
   });
   const ll=$("#loteLimpar");
   if(ll)ll.addEventListener("click",()=>{selecao.clear();render();});
-  $("#btnCsv").addEventListener("click",exportarCSV);
-  $("#btnImpCsv").addEventListener("click",importarCSV);
+   $("#btnCsv").addEventListener("click",exportarCSV);
+   $("#btnImpCsv").addEventListener("click",importarCSV);
+   const btc=$("#btnToggleConcluidos");
+   if(btc)btc.addEventListener("click",()=>{ocultarConcluidosTabela=!ocultarConcluidosTabela;render();});
 }
 
 function renderKanban(el){
