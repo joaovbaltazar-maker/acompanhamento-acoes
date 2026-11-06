@@ -131,7 +131,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
       '</table>' +
       (site ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td align="center">' +
         '<a href="' + esc(site) + '" style="display:inline-block;background:#0071e3;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;box-shadow:0 2px 6px rgba(0,113,227,.35)">Abrir o acompanhamento →</a>' +
-        '</td></tr></table>' : "") +
+        '</td></tr></table>' : '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:22px"><tr><td align="center" style="font-size:12px;color:#999">Configure o secret <b>SITE_URL</b> no GitHub para ativar o botão de acesso.</td></tr></table>') +
     '</td></tr>' +
     '<tr><td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #eee">' +
       '<p style="font-size:11px;color:#999;margin:0;line-height:1.6">' +
