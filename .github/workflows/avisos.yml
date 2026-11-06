@@ -2,7 +2,7 @@ name: Avisos por email
 
 on:
   schedule:
-    - cron: "0 11 * * *" # 11h UTC = 8h de Brasília (todo dia)
+    - cron: "0 11 * * 1-5" # 11h UTC = 8h de Brasília (seg-sex)
   workflow_dispatch: # permite disparar manualmente pela aba Actions
 
 jobs:
