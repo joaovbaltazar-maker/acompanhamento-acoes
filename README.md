@@ -17,7 +17,7 @@ Aplicação **single-file** (um único `index.html`) para o acompanhamento das a
 
 - CRUD de **ações** com responsável, status, prioridade, período e progresso
 - **Sub-ações**: clique no botão **＋ à direita do nome** da ação (na Tabela) — abre o mesmo formulário de uma ação comum já vinculada ao pai; elas ficam agrupadas (recolher/expandir) e o **progresso do pai é calculado** a partir dos filhos; excluir o pai promove os filhos a itens principais
-- **Membros do time** com cor própria (aparece em cards, barras do Gantt e calendário)
+- **Membros do time** com cor própria e **email para avisos** (aparece em cards, barras do Gantt e calendário)
 - **Colunas de status** personalizáveis (nome, cor, ordem)
 - Filtros globais: busca textual, responsável e prioridade
 - **Template inicial** “Ações da Área” com 10 ações de exemplo (incluindo sub-itens)
@@ -64,12 +64,34 @@ Zero dependências externas, zero build — o Vercel serve o `index.html` da rai
 ### Alternativa sem GitHub
 **Configurações → Exportar JSON** e troquem o arquivo entre si; **Importar JSON** carrega os dados. No mínimo, use o export como backup periódico.
 
+## 🔔 Avisos por email (GitHub Actions)
+
+Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `dados.json`, encontra as ações que **vencem hoje** ou já estão **atrasadas** (não concluídas) e envia **um email por responsável** — só as ações dele — via [Resend](https://resend.com).
+
+**1. Cadastre o email dos membros:** em **👥 Membros → Editar**, preencha o campo **Email (para avisos)**. Membro sem email é ignorado no envio.
+
+**2. Configure os secrets do repositório** (GitHub → **Settings → Secrets and variables → Actions → New repository secret**):
+
+| Secret | Valor |
+|---|---|
+| `RESEND_API_KEY` | chave da API criada em [resend.com](https://resend.com) (API Keys) |
+| `EMAIL_FROM` | remetente, ex.: `Acompanhamento <avisos@suedominio.com>` — exige domínio verificado no Resend |
+| `SITE_URL` | (opcional) endereço do site, usado no botão do email |
+
+**3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).
+
+**Agenda:** `0 11 * * *` em UTC = 8h de Brasília, definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
+
+> ⚠️ O GitHub **desativa cron automaticamente após 60 dias sem commits** no repositório — como o app gera commits a cada edição, na prática isso não costuma acontecer; se acontecer, reative em Actions → *Enable workflow*.
+
 ## Estrutura
 
 ```
 .
-├── index.html     # aplicação inteira (HTML + CSS + JS)
-├── api/dados.js   # função do Vercel: proxy do GitHub com o token do servidor
+├── index.html                     # aplicação inteira (HTML + CSS + JS)
+├── api/dados.js                   # função do Vercel: proxy do GitHub com o token do servidor
+├── scripts/avisos.js              # envio dos avisos diários por email (Resend)
+├── .github/workflows/avisos.yml   # cron diário no GitHub Actions (8h de Brasília)
 └── README.md
 ```
 

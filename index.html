@@ -467,7 +467,7 @@ function modalAcao(a,presetPai){
 function modalMembros(){
   const lista=estado.membros.map((m,i)=>
     '<div class="lm" data-i="'+i+'" style="cursor:default">'+avatarHTML(m,"lg")+
-    '<div style="flex:1"><div style="font-weight:700">'+esc(m.nome)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(m.funcao||"—")+' · '+estado.acoes.filter(a=>a.membroId===m.id&&!atrasada(a)&&progressoEfetivo(a)<100).length+' ações ativas</div></div>'+
+    '<div style="flex:1"><div style="font-weight:700">'+esc(m.nome)+'</div><div style="font-size:12px;color:var(--muted)">'+esc(m.funcao||"—")+(m.email?' · ✉ '+esc(m.email):'')+' · '+estado.acoes.filter(a=>a.membroId===m.id&&!atrasada(a)&&progressoEfetivo(a)<100).length+' ações ativas</div></div>'+
     '<button class="btn btn-sm" data-editar="'+i+'">Editar</button>'+
     '<button class="btn btn-sm" data-remover="'+i+'">✕</button></div>').join("")||
     '<div class="vazio"><div class="big">👥</div><h3>Nenhum membro ainda</h3><p>Adicione as pessoas da área para atribuir ações.</p></div>';
@@ -489,6 +489,7 @@ function modalMembroForm(m){
   const corpo='<div class="form-grid">'+
     '<div class="campo full"><label>Nome</label><input id="mNome" value="'+esc(membro.nome)+'" placeholder="Ex.: Ana Silva"></div>'+
     '<div class="campo"><label>Função</label><input id="mFuncao" value="'+esc(membro.funcao||"")+'" placeholder="Ex.: Coordenação"></div>'+
+    '<div class="campo"><label>Email (para avisos)</label><input id="mEmail" type="email" value="'+esc(membro.email||"")+'" placeholder="ana@empresa.com"></div>'+
     '<div class="campo"><label>Cor</label><select id="mCor">'+CORES.map(c=>'<option value="'+c+'"'+(membro.cor===c?" selected":"")+' style="background:'+c+'">■ '+c+'</option>').join("")+'</select></div>'+
   '</div>';
   const pe='<button class="btn" id="mVoltar">Voltar</button><button class="btn btn-primary" id="mSalvar">Salvar</button>';
@@ -498,7 +499,9 @@ function modalMembroForm(m){
   $("#mSalvar").addEventListener("click",()=>{
     const nome=formVal("mNome");
     if(!nome){toast("Informe o nome");return;}
-    const obj={id:membro.id||uid(),nome,funcao:formVal("mFuncao"),cor:$("#mCor").value,alteradoEm:agora()};
+    const email=formVal("mEmail");
+    if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast("Email inválido");return;}
+    const obj={id:membro.id||uid(),nome,email,funcao:formVal("mFuncao"),cor:$("#mCor").value,alteradoEm:agora()};
     if(novo)estado.membros.push(obj);
     else{const i=estado.membros.findIndex(x=>x.id===membro.id);estado.membros[i]=obj;}
     salvar();modalMembros();render();toast("Membro salvo");
