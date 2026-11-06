@@ -38,6 +38,9 @@ input,select,textarea{font-family:inherit;font-size:14px;color:var(--text);lette
 .topbar input[type=search]:focus{background:#fff;box-shadow:0 0 0 3.5px rgba(0,113,227,.25)}
 .topbar select{padding:8px 12px;border:none;border-radius:10px;background:rgba(0,0,0,.05);outline:none;max-width:180px;transition:box-shadow .13s ease,background .13s ease;-webkit-appearance:none;appearance:none;padding-right:26px;background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
 .topbar select:focus{background-color:#fff;box-shadow:0 0 0 3.5px rgba(0,113,227,.25)}
+.topbar input[type=date]{padding:8px 12px;border:none;border-radius:10px;background:rgba(0,0,0,.05);outline:none;color:inherit;transition:box-shadow .13s ease,background .13s ease}
+.topbar input[type=date]:focus{background:#fff;box-shadow:0 0 0 3.5px rgba(0,113,227,.25)}
+.topbar input[type=date].ativo{background:rgba(0,113,227,.12);box-shadow:inset 0 0 0 1.5px rgba(0,113,227,.45)}
 .btn{padding:7px 16px;border-radius:980px;font-weight:500;font-size:13.5px;background:rgba(0,0,0,.06);color:var(--text);transition:background .13s ease,transform .1s ease}
 .btn:hover{background:rgba(0,0,0,.1)}
 .btn:active{transform:scale(.97)}
@@ -245,6 +248,7 @@ tr.sub .c-tit::after{content:"";position:absolute;left:19px;top:50%;width:12px;h
         <option value="Media">Média</option>
         <option value="Baixa">Baixa</option>
       </select>
+      <input type="date" id="filtroPrazo" title="Filtrar por prazo de entrega">
       <span id="chipFoco"></span>
       <button class="btn btn-primary" id="btnNova">＋ Nova ação</button>
       <span class="spacer"></span>
@@ -265,7 +269,7 @@ const CORES = ["#e44258","#fdab3d","#00c875","#579bfc","#0073ea","#a25ddc","#00d
 let estado = null;
 let cfg = {token:"",usuario:"",repo:"",caminho:"dados.json"};
 let visaoAtual = "tabela";
-let filtros = {busca:"",membro:"",prioridade:""};
+let filtros = {busca:"",membro:"",prioridade:"",prazo:""};
 let ordemTabela = {campo:"prazo",dir:1};
 let selecao = new Set();
 let recolhidos = new Set();
@@ -338,6 +342,7 @@ function filtradas(){
   return estado.acoes.filter(a=>{
     if(filtros.membro&&a.membroId!==filtros.membro)return false;
     if(filtros.prioridade&&a.prioridade!==filtros.prioridade)return false;
+    if(filtros.prazo&&a.prazo!==filtros.prazo)return false;
     if(b){
       const alvo=(a.titulo+" "+(a.descricao||"")).toLowerCase();
       if(!alvo.includes(b))return false;
@@ -1302,6 +1307,11 @@ function init(){
   $("#busca").addEventListener("input",e=>{filtros.busca=e.target.value;render();});
   $("#filtroMembro").addEventListener("change",e=>{filtros.membro=e.target.value;render();});
   $("#filtroPrioridade").addEventListener("change",e=>{filtros.prioridade=e.target.value;render();});
+  $("#filtroPrazo").addEventListener("change",e=>{
+    filtros.prazo=e.target.value;
+    e.target.classList.toggle("ativo",!!e.target.value);
+    render();
+  });
   document.addEventListener("keydown",atalhos);
   document.addEventListener("click",e=>{
     const t=e.target.closest?e.target.closest("[data-foco]"):null;
