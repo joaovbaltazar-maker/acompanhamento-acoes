@@ -2,18 +2,19 @@ name: Avisos por email
 
 on:
   schedule:
-    - cron: "0 10 * * 1-5" # 10h00 de Brasília (seg-sex)
-      timezone: "America/Sao_Paulo"
+    # 13:13 UTC = 10:13 de Brasília (seg-sex). Minuto fora do topo da hora
+    # reduz atrasos/congestionamento do agendador do GitHub Actions.
+    - cron: "13 13 * * 1-5"
   workflow_dispatch: # permite disparar manualmente pela aba Actions
 
 jobs:
   enviar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - name: Instalar nodemailer
         run: npm install nodemailer
       - name: Enviar avisos por email
@@ -22,3 +23,4 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}

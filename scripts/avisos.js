@@ -1,6 +1,7 @@
 // Avisos diários por email — executado pelo GitHub Actions (.github/workflows/avisos.yml).
 // Envia via Gmail SMTP (nodemailer). Requer os secrets GMAIL_USER e GMAIL_APP_PASSWORD.
 // Cada membro com email cadastrado recebe suas ações que vencem hoje ou já estão atrasadas.
+// Se o secret EMAIL_ADMIN estiver definido, envia também uma cópia consolidada para o admin.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -199,6 +200,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     });
 
     const site = (process.env.SITE_URL || "").trim();
+    const admin = (process.env.EMAIL_ADMIN || "").trim().toLowerCase();
 
     const estado = carregarDados();
     const { colunaPorId, concluida } = criarHelpers(estado);
@@ -225,27 +227,38 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
       return;
     }
 
+    const ordenar = arr => arr.slice().sort((a, b) =>
+      a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
+
     let enviados = 0;
     const erros = [];
-    for (const [email, info] of porEmail) {
-      info.acoes.sort((a, b) => a.prazo.localeCompare(b.prazo) || a.titulo.localeCompare(b.titulo, "pt-BR"));
-      const { html, texto, assunto } = montarEmail(info.nome, info.acoes, hoje, site, colunaPorId);
+    async function enviar(to, nome, acoes, prefixo) {
+      const { html, texto, assunto } = montarEmail(nome, ordenar(acoes), hoje, site, colunaPorId);
       try {
         await transporter.sendMail({
           from: '"Acompanhamento de Ações" <' + user + ">",
-          to: email,
-          subject: assunto,
+          to: to,
+          subject: (prefixo || "") + assunto,
           html: html,
           text: texto,
         });
         enviados++;
-        console.log("OK  " + email + " (" + info.acoes.length + " ação(ões))");
+        console.log("OK  " + to + " (" + acoes.length + " ação(ões)" + (prefixo ? ", cópia admin" : "") + ")");
       } catch (e) {
-        erros.push(email + ": " + (e && e.message ? e.message : e));
-        console.error("ERRO " + email + ": " + (e && e.message ? e.message : e));
+        erros.push(to + ": " + (e && e.message ? e.message : e));
+        console.error("ERRO " + to + ": " + (e && e.message ? e.message : e));
       }
     }
-    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, erros: erros.length }));
+
+    for (const [email, info] of porEmail) {
+      await enviar(email, info.nome, info.acoes);
+    }
+
+    if (admin && !porEmail.has(admin) && avisaveis.length) {
+      await enviar(admin, "Admin", avisaveis, "[Cópia admin] ");
+    }
+
+    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, admin: admin || null, erros: erros.length }));
     if (erros.length) process.exitCode = 1;
   } catch (e) {
     console.error(e && e.message ? e.message : e);
