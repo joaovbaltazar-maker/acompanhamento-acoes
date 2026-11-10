@@ -66,7 +66,7 @@ Zero dependências externas, zero build — o Vercel serve o `index.html` da rai
 
 ## 🔔 Avisos por email (GitHub Actions)
 
-Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `dados.json`, encontra as ações que **vencem hoje** ou já estão **atrasadas** (não concluídas) e envia **um email por responsável** — só as ações dele — via [Resend](https://resend.com).
+Todo dia às **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `dados.json`, encontra as ações que **vencem hoje** ou já estão **atrasadas** (não concluídas) e envia **um email por responsável** — só as ações dele — via [Resend](https://resend.com).
 
 **1. Cadastre o email dos membros:** em **👥 Membros → Editar**, preencha o campo **Email (para avisos)**. Membro sem email é ignorado no envio.
 
@@ -87,7 +87,7 @@ Todo dia às **8h da manhã (Brasília)** um workflow do GitHub Actions lê o `d
 
 **3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).
 
-**Agenda:** `0 11 * * *` em UTC = 8h de Brasília, definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
+**Agenda:** `0 10 * * 1-5` em America/Sao_Paulo (10h00, seg-sex), definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
 
 **Como funciona:** cada membro com email cadastrado recebe **um email individual** com suas ações que vencem hoje ou já estão atrasadas. Sem verificação de domínio, sem custo, sem envolver a TI. Limite do Gmail: 500 emails/dia (mais que suficiente para equipes pequenas).
 

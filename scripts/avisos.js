@@ -203,7 +203,7 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
     const estado = carregarDados();
     const { colunaPorId, concluida } = criarHelpers(estado);
     const hoje = hojeSP();
-    const diaSemana = new Date(hoje + "T12:00:00-03:00").getDay();
+    const diaSemana = new Date(hoje + "T12:00:00Z").getUTCDay();
     if (!process.env.FORCAR && (diaSemana === 0 || diaSemana === 6)) {
       console.log("Fim de semana (" + hoje + ") — envio ignorado. Use FORCAR=1 para forçar.");
       return;
