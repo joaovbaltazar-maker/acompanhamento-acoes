@@ -45,8 +45,9 @@ jobs:
           echo "hoje=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_OUTPUT"
           echo "hora=$(TZ=America/Sao_Paulo date +%H)" >> "$GITHUB_OUTPUT"
 
-      # O push é só uma rede de segurança: só vale na janela da manhã (10h-13h).
-      # Fora dela, o cron (ou um disparo manual) cuida do envio.
+      # O push é só uma rede de segurança. Vale das 10h às 18h: se todos os
+      # horários do cron forem descartados pelo GitHub, a primeira edição do dia
+      # no app ainda dispara o envio (o histórico impede email repetido).
       - name: Decidir se executa
         id: decidir
         run: |
@@ -55,11 +56,11 @@ jobs:
             exit 0
           fi
           hora=$((10#${{ steps.agora.outputs.hora }}))
-          if [ "$hora" -ge 10 ] && [ "$hora" -lt 13 ]; then
+          if [ "$hora" -ge 10 ] && [ "$hora" -lt 18 ]; then
             echo "executa=true" >> "$GITHUB_OUTPUT"
           else
             echo "executa=false" >> "$GITHUB_OUTPUT"
-            echo "Push fora da janela da manhã (${hora}h em Brasília) — nada a fazer." >> "$GITHUB_STEP_SUMMARY"
+            echo "Push fora da janela de envio (${hora}h em Brasília) — nada a fazer." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Restaurar histórico de envios do dia
