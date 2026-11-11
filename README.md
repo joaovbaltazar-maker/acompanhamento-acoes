@@ -94,6 +94,15 @@ Todo dia a partir das **10h da manhã (Brasília)** um workflow do GitHub Action
 
 > ⚠️ O GitHub **desativa cron automaticamente após 60 dias sem commits** no repositório — como o app gera commits a cada edição, na prática isso não costuma acontecer; se acontecer, reative em Actions → *Enable workflow*.
 
+### Terceira camada: cron da Vercel (já configurado)
+
+Além das tentativas do GitHub, a Vercel chama **1x por dia às 10:20 (Brasília)** a função `api/aviso-cron`, que dispara o workflow na hora. É um agendador independente: se o GitHub descartar todas as tentativas do cron dele, essa chamada ainda aciona o envio. O histórico do dia garante que ninguém recebe email duplicado.
+
+- Funciona **sem configurar nada**: usa o mesmo `GH_TOKEN`/`GH_OWNER`/`GH_REPO` que a sincronização do site já usa.
+- **Recomendado:** crie a variável `CRON_SECRET` (uma senha aleatória com 16+ caracteres) em **Vercel → Settings → Environment Variables** e faça um novo deploy. Sem ela, qualquer pessoa com a URL consegue disparar o envio (o pior caso é um email adiantado).
+- Para testar: abra `https://SEU_PROJETO.vercel.app/api/aviso-cron` no navegador — deve responder `{"ok":true,"disparado":true}`.
+- Se responder `403`, o `GH_TOKEN` não tem permissão de disparar workflow: use um token clássico com escopo **repo** (+ **workflow**) ou um fine-grained com **Actions: Read and write**.
+
 ### Se o email não chegar
 
 1. **Olhe a aba Actions → Avisos por email.** Se **não existe run** no horário, o problema é o agendador do GitHub (não o código): rode **Run workflow** manualmente ou espere o próximo horário/push.
@@ -110,6 +119,8 @@ Todo dia a partir das **10h da manhã (Brasília)** um workflow do GitHub Action
 .
 ├── index.html                     # aplicação inteira (HTML + CSS + JS)
 ├── api/dados.js                   # função do Vercel: proxy do GitHub com o token do servidor
+├── api/aviso-cron.js              # função do Vercel: dispara o workflow de avisos (cron da Vercel)
+├── vercel.json                    # cron da Vercel: 1x/dia, 10:20 (Brasília)
 ├── scripts/avisos.js              # envio dos avisos diários por email (Gmail SMTP)
 ├── .github/workflows/avisos.yml   # cron (várias tentativas) + push + disparo manual
 └── README.md
