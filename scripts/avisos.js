@@ -372,26 +372,38 @@ function gravarHistorico(hoje, enviados) {
 
     async function enviar(to, nome, acoes, prefixo) {
       const { html, texto, assunto } = montarEmail(nome, ordenar(acoes), hoje, site, colunaPorId);
-      try {
-        const info = await transporter.sendMail({
-          from: '"Acompanhamento de Ações" <' + user + ">",
-          to: to,
-          replyTo: user,
-          subject: (prefixo || "") + assunto,
-          html: html,
-          text: texto,
-          headers: { "X-Auto-Response-Suppress": "All" },
-        });
-        enviados++;
-        historico.add(to.toLowerCase());
-        gravarHistorico(hoje, historico);
-        const aceitos = ((info && info.accepted) || []).join(", ") || to;
-        anotar("Enviado para " + to + " (" + acoes.length + " ação(ões); aceito pelo servidor: " + aceitos + ")");
-        console.log("OK  " + to + " (" + acoes.length + " ação(ões)" + (prefixo ? ", cópia admin" : "") + ")");
-      } catch (e) {
-        erros.push(to + ": " + textoErro(e));
-        console.error("ERRO " + to + ": " + textoErro(e));
+      let ultimoErro = null;
+      for (let tentativa = 1; tentativa <= 2; tentativa++) {
+        try {
+          const info = await transporter.sendMail({
+            from: '"Acompanhamento de Ações" <' + user + ">",
+            to: to,
+            replyTo: user,
+            subject: (prefixo || "") + assunto,
+            html: html,
+            text: texto,
+            headers: { "X-Auto-Response-Suppress": "All" },
+          });
+          enviados++;
+          historico.add(to.toLowerCase());
+          gravarHistorico(hoje, historico);
+          const aceitos = ((info && info.accepted) || []).join(", ") || to;
+          anotar("Enviado para " + to + " (" + acoes.length + " ação(ões); aceito pelo servidor: " + aceitos + ")");
+          console.log("OK  " + to + " (" + acoes.length + " ação(ões)" + (prefixo ? ", cópia admin" : "") + ")");
+          return;
+        } catch (e) {
+          ultimoErro = e;
+          // Uma segunda tentativa resolve a maioria dos erros passageiros
+          // (limite de conexão do Gmail, greylisting etc.).
+          if (tentativa === 1) await new Promise(r => setTimeout(r, 3000));
+        }
       }
+      // Falhou duas vezes: registra o erro e não insiste de novo hoje para não
+      // transformar um endereço inválido em 8 execuções vermelhas no Actions.
+      erros.push(to + ": " + textoErro(ultimoErro));
+      historico.add(to.toLowerCase());
+      gravarHistorico(hoje, historico);
+      console.error("ERRO " + to + ": " + textoErro(ultimoErro));
     }
 
     for (const [email, info] of pendentes) {
