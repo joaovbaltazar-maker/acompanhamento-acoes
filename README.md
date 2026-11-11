@@ -66,7 +66,7 @@ Zero dependências externas, zero build — o Vercel serve o `index.html` da rai
 
 ## 🔔 Avisos por email (GitHub Actions)
 
-Todo dia às **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `dados.json`, encontra as ações que **vencem hoje** ou já estão **atrasadas** (não concluídas) e envia **um email por responsável** — só as ações dele — via [Resend](https://resend.com).
+Todo dia a partir das **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `dados.json`, encontra as ações que **vencem hoje** ou já estão **atrasadas** (não concluídas) e envia **um email por responsável** — só as ações dele — via **Gmail SMTP** (nodemailer).
 
 **1. Cadastre o email dos membros:** em **👥 Membros → Editar**, preencha o campo **Email (para avisos)**. Membro sem email é ignorado no envio.
 
@@ -77,6 +77,7 @@ Todo dia às **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `
 | `GMAIL_USER` | seu email do Gmail (ex.: `joaovbaltazar@gmail.com`) |
 | `GMAIL_APP_PASSWORD` | senha de app do Gmail (16 caracteres) — veja abaixo como gerar |
 | `SITE_URL` | (opcional) endereço do site, usado no botão do email |
+| `EMAIL_ADMIN` | (opcional) recebe também uma cópia consolidada com as ações de todos |
 
 **Como gerar a senha de app do Gmail:**
 1. Acesse [myaccount.google.com](https://myaccount.google.com) → **Segurança**
@@ -85,13 +86,23 @@ Todo dia às **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `
 4. Selecione **Email** e **Outro (nome personalizado)** → digite "Acompanhamento" → **Gerar**
 5. Copie a senha de 16 caracteres (sem espaços) e cole no secret `GMAIL_APP_PASSWORD`
 
-**3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos).
+**3. Ative e teste:** vá em **Actions → Avisos por email → Enable workflow** e clique em **Run workflow** para um disparo manual de teste (o email deve chegar em minutos). Para reenviar mesmo já tendo enviado naquele dia, marque a opção **forcar** antes de rodar.
 
-**Agenda:** `0 10 * * 1-5` em America/Sao_Paulo (10h00, seg-sex), definido em `.github/workflows/avisos.yml`. O script de envio fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
+**Agenda e garantias de entrega:** o GitHub **não garante** o horário do `schedule` — ele atrasa e, quando o agendador está sobrecarregado, **descarta a execução sem gerar erro** (foi o que fez o email de 11/11/2026 não sair, sem nenhum run no histórico). Para não depender de uma única tentativa, o workflow dispara em **8 horários por dia** (`13,43 13-16 * * 1-5` em UTC = 10:13 às 13:43 de Brasília) **e também a cada push no `dados.json` entre 10h e 13h**. A primeira execução que der certo envia; as seguintes leem o histórico do dia (`.aviso/historico.json`, guardado no cache do Actions) e encerram **sem repetir email** para ninguém. O script fica em `scripts/avisos.js` (mesma lógica do app: vencidas usam progresso efetivo e coluna “Concluído”).
 
 **Como funciona:** cada membro com email cadastrado recebe **um email individual** com suas ações que vencem hoje ou já estão atrasadas. Sem verificação de domínio, sem custo, sem envolver a TI. Limite do Gmail: 500 emails/dia (mais que suficiente para equipes pequenas).
 
 > ⚠️ O GitHub **desativa cron automaticamente após 60 dias sem commits** no repositório — como o app gera commits a cada edição, na prática isso não costuma acontecer; se acontecer, reative em Actions → *Enable workflow*.
+
+### Se o email não chegar
+
+1. **Olhe a aba Actions → Avisos por email.** Se **não existe run** no horário, o problema é o agendador do GitHub (não o código): rode **Run workflow** manualmente ou espere o próximo horário/push.
+2. Se o run **falhou**, abra o log. As mensagens são explícitas: secret ausente, senha de app inválida (`535`), ou endereço rejeitado.
+3. Se o run **passou**, leia o **Summary** da execução: ele lista quantas ações estavam no radar, quem recebeu e quem não tem email cadastrado.
+4. Se o run passou e mesmo assim nada chegou, verifique **spam/lixo eletrônico** e a quarentena do filtro corporativo (emails vindos de um Gmail pessoal para `@rumolog.com` podem ser retidos). O log mostra `aceito pelo servidor: <email>` — nesse ponto o Gmail já aceitou a mensagem.
+5. **Por que às vezes ninguém recebe:** o envio é só para quem tem ação **vencendo ou atrasada**. Em vários dias uma pessoa específica não tem nenhuma — e não recebe nada mesmo com tudo funcionando. Use `EMAIL_ADMIN` para receber a cópia consolidada todos os dias com pendências.
+
+**Testar sem enviar:** rode `DRY_RUN=1 GMAIL_USER=x GMAIL_APP_PASSWORD=y node scripts/avisos.js` — mostra quem receberia o quê, sem conectar no Gmail.
 
 ## Estrutura
 
@@ -99,8 +110,8 @@ Todo dia às **10h da manhã (Brasília)** um workflow do GitHub Actions lê o `
 .
 ├── index.html                     # aplicação inteira (HTML + CSS + JS)
 ├── api/dados.js                   # função do Vercel: proxy do GitHub com o token do servidor
-├── scripts/avisos.js              # envio dos avisos diários por email (Resend)
-├── .github/workflows/avisos.yml   # cron diário no GitHub Actions (8h de Brasília)
+├── scripts/avisos.js              # envio dos avisos diários por email (Gmail SMTP)
+├── .github/workflows/avisos.yml   # cron (várias tentativas) + push + disparo manual
 └── README.md
 ```
 

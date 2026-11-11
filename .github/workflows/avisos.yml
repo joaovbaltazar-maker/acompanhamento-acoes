@@ -1,26 +1,103 @@
 name: Avisos por email
 
+# Por que existem vários gatilhos?
+# O evento `schedule` do GitHub Actions é "best-effort": ele atrasa e, quando o
+# agendador está sobrecarregado, DESCARTA execuções. Era exatamente isso que
+# fazia o email do dia simplesmente não sair (sem erro nenhum em lugar algum).
+# Solução: várias janelas de tentativa + um gatilho em push (o app faz commits
+# o dia inteiro) + botão manual. O script guarda um histórico do dia, então a
+# primeira execução que der certo envia e as demais encerram sem duplicar nada.
 on:
   schedule:
-    # 13:13 UTC = 10:13 de Brasília (seg-sex). Minuto fora do topo da hora
-    # reduz atrasos/congestionamento do agendador do GitHub Actions.
-    - cron: "13 13 * * 1-5"
+    # 13:13, 13:43, 14:13, 14:43, 15:13, 15:43, 16:13 e 16:43 UTC
+    # = 10:13 às 13:43 de Brasília (seg-sex). Minutos fora do topo da hora e
+    # vários horários para não depender de uma única tentativa do agendador.
+    - cron: "13,43 13-16 * * 1-5"
+  push:
+    branches: [main]
+    paths: [dados.json]
   workflow_dispatch: # permite disparar manualmente pela aba Actions
+    inputs:
+      forcar:
+        description: "Reenviar mesmo que já tenha sido enviado hoje"
+        type: boolean
+        default: false
+
+# Nunca deixa duas execuções enviarem ao mesmo tempo (a segunda espera a
+# primeira terminar e então vê o histórico do dia).
+concurrency:
+  group: avisos-email
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   enviar:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+
+      - name: Data/hora atuais em Brasília
+        id: agora
+        run: |
+          echo "hoje=$(TZ=America/Sao_Paulo date +%F)" >> "$GITHUB_OUTPUT"
+          echo "hora=$(TZ=America/Sao_Paulo date +%H)" >> "$GITHUB_OUTPUT"
+
+      # O push é só uma rede de segurança: só vale na janela da manhã (10h-13h).
+      # Fora dela, o cron (ou um disparo manual) cuida do envio.
+      - name: Decidir se executa
+        id: decidir
+        run: |
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "executa=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hora=$((10#${{ steps.agora.outputs.hora }}))
+          if [ "$hora" -ge 10 ] && [ "$hora" -lt 13 ]; then
+            echo "executa=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "executa=false" >> "$GITHUB_OUTPUT"
+            echo "Push fora da janela da manhã (${hora}h em Brasília) — nada a fazer." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Restaurar histórico de envios do dia
+        if: steps.decidir.outputs.executa == 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: .aviso
+          key: aviso-${{ steps.agora.outputs.hoje }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            aviso-${{ steps.agora.outputs.hoje }}-
+
       - uses: actions/setup-node@v5
+        if: steps.decidir.outputs.executa == 'true'
         with:
           node-version: 22
+
       - name: Instalar nodemailer
-        run: npm install nodemailer
+        if: steps.decidir.outputs.executa == 'true'
+        run: npm install --no-save --no-audit --no-fund nodemailer@^10.5.0
+
       - name: Enviar avisos por email
+        if: steps.decidir.outputs.executa == 'true'
+        id: envio
         run: node scripts/avisos.js
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           SITE_URL: ${{ secrets.SITE_URL }}
           EMAIL_ADMIN: ${{ secrets.EMAIL_ADMIN }}
+          HISTORICO: .aviso/historico.json
+          FORCAR: ${{ inputs.forcar && '1' || '' }}
+
+      # Guarda o histórico mesmo se algum envio falhar: assim uma nova tentativa
+      # não manda email repetido para quem já recebeu.
+      - name: Guardar histórico do dia
+        if: always() && steps.decidir.outputs.executa == 'true'
+        uses: actions/cache/save@v4
+        continue-on-error: true
+        with:
+          path: .aviso
+          key: aviso-${{ steps.agora.outputs.hoje }}-${{ github.run_id }}-${{ github.run_attempt }}

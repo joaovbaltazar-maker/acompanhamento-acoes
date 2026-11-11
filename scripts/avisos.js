@@ -183,13 +183,164 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
   return { html, texto, assunto };
 }
 
+// ---------------------------------------------------------------------------
+// Execução
+//
+// Variáveis de ambiente:
+//   GMAIL_USER / GMAIL_APP_PASSWORD  (obrigatórias) credenciais do Gmail
+//   SITE_URL                         (opcional) botão para abrir o site
+//   EMAIL_ADMIN                      (opcional) recebe uma cópia consolidada
+//   FORCAR=1                         ignora fim de semana e o histórico do dia
+//   DRY_RUN=1                        não envia nada, só mostra o que faria
+//   HISTORICO                        caminho do arquivo que evita envio duplicado
+//   GITHUB_STEP_SUMMARY / GITHUB_OUTPUT  (preenchidos pelo GitHub Actions)
+// ---------------------------------------------------------------------------
 
+function textoErro(e) {
+  return e && e.message ? e.message : String(e);
+}
+
+function escreverResumo(linhas) {
+  const arq = process.env.GITHUB_STEP_SUMMARY;
+  if (!arq) return;
+  try {
+    fs.appendFileSync(arq, linhas.join("\n") + "\n");
+  } catch (e) {
+    // resumo é opcional: nunca deve derrubar o envio
+  }
+}
+
+function saida(nome, valor) {
+  const arq = process.env.GITHUB_OUTPUT;
+  if (!arq) return;
+  try {
+    fs.appendFileSync(arq, nome + "=" + valor + "\n");
+  } catch (e) {
+    // idem
+  }
+}
+
+const HISTORICO = (process.env.HISTORICO || "").trim();
+
+// O histórico garante "no máximo um email por pessoa por dia", mesmo que o
+// workflow rode várias vezes (tentativas do cron, push, disparo manual...).
+function lerHistorico(hoje) {
+  if (!HISTORICO) return new Set();
+  try {
+    const h = JSON.parse(fs.readFileSync(HISTORICO, "utf8"));
+    if (h && h.data === hoje && Array.isArray(h.enviados)) {
+      return new Set(h.enviados.map(e => String(e).trim().toLowerCase()));
+    }
+  } catch (e) {
+    // arquivo ainda não existe — primeira execução do dia
+  }
+  return new Set();
+}
+
+function gravarHistorico(hoje, enviados) {
+  if (!HISTORICO) return;
+  try {
+    fs.mkdirSync(path.dirname(HISTORICO), { recursive: true });
+    fs.writeFileSync(HISTORICO, JSON.stringify({ data: hoje, enviados: Array.from(enviados) }));
+  } catch (e) {
+    console.error("Aviso: não foi possível gravar o histórico: " + textoErro(e));
+  }
+}
 
 (async () => {
+  const linhas = [];
+  const anotar = m => {
+    console.log(m);
+    linhas.push(m);
+  };
+  let codigo = 0;
+
   try {
-    const user = process.env.GMAIL_USER;
-    const pass = process.env.GMAIL_APP_PASSWORD;
-    if (!user || !pass) throw new Error("Defina os secrets GMAIL_USER e GMAIL_APP_PASSWORD no repositório");
+    const user = (process.env.GMAIL_USER || "").trim();
+    const pass = (process.env.GMAIL_APP_PASSWORD || "").replace(/\s+/g, "");
+    const site = (process.env.SITE_URL || "").trim();
+    const admin = (process.env.EMAIL_ADMIN || "").trim().toLowerCase();
+    const forcar = /^(1|true|sim)$/i.test(process.env.FORCAR || "");
+    const simular = /^(1|true|sim)$/i.test(process.env.DRY_RUN || "");
+
+    if (!user || !pass) {
+      throw new Error(
+        "Secrets ausentes: configure GMAIL_USER e GMAIL_APP_PASSWORD em " +
+        "Settings → Secrets and variables → Actions."
+      );
+    }
+
+    const estado = carregarDados();
+    const { colunaPorId, concluida } = criarHelpers(estado);
+    const hoje = hojeSP();
+    const diaSemana = new Date(hoje + "T12:00:00Z").getUTCDay();
+
+    anotar("Data de referência (America/Sao_Paulo): " + hoje);
+
+    if (!forcar && (diaSemana === 0 || diaSemana === 6)) {
+      anotar("Fim de semana — envio ignorado (use FORCAR=1 para forçar).");
+      escreverResumo(["## Avisos por email — " + hoje, "", "- Fim de semana: nada enviado."]);
+      saida("enviado", "false");
+      return;
+    }
+
+    const avisaveis = estado.acoes.filter(a => emAviso(a, hoje, concluida));
+    const semMembro = [];
+    const semEmail = [];
+    const porEmail = new Map();
+
+    for (const a of avisaveis) {
+      const m = estado.membros.find(x => x.id === a.membroId);
+      if (!m) {
+        semMembro.push(a.titulo);
+        continue;
+      }
+      const email = String(m.email || "").trim().toLowerCase();
+      if (!email) {
+        semEmail.push(m.nome + " — " + a.titulo);
+        continue;
+      }
+      if (!porEmail.has(email)) porEmail.set(email, { nome: m.nome, acoes: [] });
+      porEmail.get(email).acoes.push(a);
+    }
+
+    anotar(
+      "Ações vencendo hoje ou atrasadas: " + avisaveis.length +
+      " · destinatários com email: " + porEmail.size +
+      (semEmail.length ? " · responsáveis sem email: " + semEmail.length : "") +
+      (semMembro.length ? " · ações sem responsável: " + semMembro.length : "")
+    );
+    semEmail.forEach(x => anotar("Sem email (ignorado): " + x));
+    semMembro.forEach(x => anotar("Sem responsável (ignorado): " + x));
+
+    // Filtra quem já recebeu hoje (retentativas do mesmo dia não duplicam email).
+    const historico = lerHistorico(hoje);
+    const pendentes = new Map();
+    const jaEnviados = [];
+    for (const [email, info] of porEmail) {
+      if (!forcar && historico.has(email)) jaEnviados.push(email);
+      else pendentes.set(email, info);
+    }
+    if (jaEnviados.length) {
+      anotar("Já receberam hoje (não repete): " + jaEnviados.join(", "));
+    }
+
+    if (simular) {
+      for (const [email, info] of pendentes) {
+        anotar("SIMULAÇÃO: enviaria " + info.acoes.length + " ação(ões) para " + email);
+      }
+      if (!pendentes.size) anotar("SIMULAÇÃO: nenhum destinatário pendente.");
+      escreverResumo(["## Avisos por email — " + hoje + " (simulação)", ""].concat(linhas.map(l => "- " + l)));
+      saida("enviado", "false");
+      return;
+    }
+
+    if (!pendentes.size) {
+      anotar("Nada a enviar: nenhum destinatário pendente.");
+      escreverResumo(["## Avisos por email — " + hoje, ""].concat(linhas.map(l => "- " + l)));
+      saida("enviado", jaEnviados.length ? "true" : "false");
+      return;
+    }
 
     const nodemailer = require("nodemailer");
     const transporter = nodemailer.createTransport({
@@ -197,34 +348,20 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
       port: 465,
       secure: true,
       auth: { user, pass },
+      connectionTimeout: 20000,
+      greetingTimeout: 20000,
+      socketTimeout: 45000,
     });
 
-    const site = (process.env.SITE_URL || "").trim();
-    const admin = (process.env.EMAIL_ADMIN || "").trim().toLowerCase();
-
-    const estado = carregarDados();
-    const { colunaPorId, concluida } = criarHelpers(estado);
-    const hoje = hojeSP();
-    const diaSemana = new Date(hoje + "T12:00:00Z").getUTCDay();
-    if (!process.env.FORCAR && (diaSemana === 0 || diaSemana === 6)) {
-      console.log("Fim de semana (" + hoje + ") — envio ignorado. Use FORCAR=1 para forçar.");
-      return;
-    }
-
-    const avisaveis = estado.acoes.filter(a => emAviso(a, hoje, concluida));
-    const porEmail = new Map();
-    let semEmail = 0;
-    for (const a of avisaveis) {
-      const m = estado.membros.find(x => x.id === a.membroId);
-      const email = ((m && m.email) || "").trim().toLowerCase();
-      if (!email) { semEmail++; continue; }
-      if (!porEmail.has(email)) porEmail.set(email, { nome: m.nome, acoes: [] });
-      porEmail.get(email).acoes.push(a);
-    }
-
-    if (!porEmail.size) {
-      console.log("Nada a enviar: " + avisaveis.length + " ação(ões) no radar, " + semEmail + " sem email do responsável.");
-      return;
+    try {
+      await transporter.verify();
+      anotar("Conexão SMTP autenticada como " + user + ".");
+    } catch (e) {
+      throw new Error(
+        "Falha ao conectar/autenticar no Gmail: " + textoErro(e) + ". " +
+        "Confira se GMAIL_APP_PASSWORD é uma senha de app de 16 caracteres válida " +
+        "(verificação em 2 etapas ativa) e se a conta não bloqueou o acesso."
+      );
     }
 
     const ordenar = arr => arr.slice().sort((a, b) =>
@@ -232,36 +369,67 @@ function montarEmail(nome, acoes, hoje, site, colunaPorId) {
 
     let enviados = 0;
     const erros = [];
+
     async function enviar(to, nome, acoes, prefixo) {
       const { html, texto, assunto } = montarEmail(nome, ordenar(acoes), hoje, site, colunaPorId);
       try {
-        await transporter.sendMail({
+        const info = await transporter.sendMail({
           from: '"Acompanhamento de Ações" <' + user + ">",
           to: to,
+          replyTo: user,
           subject: (prefixo || "") + assunto,
           html: html,
           text: texto,
+          headers: { "X-Auto-Response-Suppress": "All" },
         });
         enviados++;
+        historico.add(to.toLowerCase());
+        gravarHistorico(hoje, historico);
+        const aceitos = ((info && info.accepted) || []).join(", ") || to;
+        anotar("Enviado para " + to + " (" + acoes.length + " ação(ões); aceito pelo servidor: " + aceitos + ")");
         console.log("OK  " + to + " (" + acoes.length + " ação(ões)" + (prefixo ? ", cópia admin" : "") + ")");
       } catch (e) {
-        erros.push(to + ": " + (e && e.message ? e.message : e));
-        console.error("ERRO " + to + ": " + (e && e.message ? e.message : e));
+        erros.push(to + ": " + textoErro(e));
+        console.error("ERRO " + to + ": " + textoErro(e));
       }
     }
 
-    for (const [email, info] of porEmail) {
+    for (const [email, info] of pendentes) {
       await enviar(email, info.nome, info.acoes);
     }
 
-    if (admin && !porEmail.has(admin) && avisaveis.length) {
+    if (admin && avisaveis.length && !porEmail.has(admin) && (forcar || !historico.has(admin))) {
       await enviar(admin, "Admin", avisaveis, "[Cópia admin] ");
     }
 
-    console.log(JSON.stringify({ hoje, avisaveis: avisaveis.length, enviados, semEmail, admin: admin || null, erros: erros.length }));
-    if (erros.length) process.exitCode = 1;
+    anotar("Resultado: " + enviados + " email(s) enviado(s), " + erros.length + " erro(s).");
+    erros.forEach(e => anotar("Erro: " + e));
+
+    escreverResumo(
+      ["## Avisos por email — " + hoje, ""].concat(linhas.map(l => "- " + l))
+    );
+
+    console.log(JSON.stringify({
+      hoje: hoje,
+      avisaveis: avisaveis.length,
+      destinatarios: porEmail.size,
+      enviados: enviados,
+      jaEnviadosHoje: jaEnviados.length,
+      semEmail: semEmail.length,
+      semMembro: semMembro.length,
+      erros: erros.length,
+    }));
+
+    saida("enviado", enviados > 0 ? "true" : "false");
+    if (erros.length) codigo = 1;
   } catch (e) {
-    console.error(e && e.message ? e.message : e);
-    process.exitCode = 1;
+    const m = textoErro(e);
+    console.error(m);
+    anotar("ERRO: " + m);
+    escreverResumo(["## Avisos por email — falhou", "", "```", m, "```"]);
+    saida("enviado", "false");
+    codigo = 1;
   }
+
+  process.exitCode = codigo;
 })();
